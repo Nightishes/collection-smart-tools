@@ -18,7 +18,11 @@ export default function PageModifyHtml() {
     options,
     updateOption,
     fetchHtmlContent,
-    reset
+    reset,
+    fcOverrides,
+    fsOverrides,
+    updateClassOverride,
+    resetClassOverride
   } = useHtmlModifier();
 
   const { files, onFilesSelected, clearFiles } = useFileUpload(fetchHtmlContent);
@@ -91,7 +95,7 @@ export default function PageModifyHtml() {
       const res = await fetch('/api/upload/html/save', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ file: lastHtmlName, options }),
+        body: JSON.stringify({ file: lastHtmlName, options: { ...options, fcOverrides, fsOverrides } }),
       });
       const json = await res.json();
       if (res.ok && json.success) {
@@ -138,6 +142,10 @@ export default function PageModifyHtml() {
               options={options}
               onOptionChange={updateOption}
               styleInfo={styleInfo}
+              fcOverrides={fcOverrides}
+              fsOverrides={fsOverrides}
+              onClassOverrideChange={updateClassOverride}
+              onClassOverrideReset={resetClassOverride}
               onDownloadModified={downloadModified}
               onDownloadOriginal={downloadOriginal}
               onDownloadPdf={downloadAsPdf}

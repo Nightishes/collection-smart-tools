@@ -59,6 +59,12 @@
   color: var(--text-primary);
 }
 
+.ctaButtonIframe{
+  padding: 10px;
+  background-color: var(--foreground);
+  color: var(--text-primary);
+}
+
 .removeButton {
   background: none;
   border: none;

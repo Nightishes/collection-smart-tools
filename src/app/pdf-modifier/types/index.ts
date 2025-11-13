@@ -12,9 +12,7 @@ export type StyleInfo = {
 export type ModifyOptions = {
   removeDataImages: boolean;
   bgColor: string;
-  textColor: string;
-  fontSize: number;
-  bold: boolean;
-  italic: boolean;
-  underline: boolean;
+  // optional per-class overrides to send to the modifyHtml util
+  fcOverrides?: Record<string, string>;
+  fsOverrides?: Record<string, string>;
 };
