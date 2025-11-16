@@ -4,6 +4,7 @@ import "./globals.css";
 import Header from "./header/page";
 import Footer from "./footer/page";
 import { ThemeProvider } from "./context/ThemeContext";
+import { AuthProvider } from "./context/AuthContext";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -33,13 +34,15 @@ export default function RootLayout({
           minHeight: '100vh'
         }}>
         <ThemeProvider>
-          <header>
-            <Header />
-          </header>
-          <main style={{ flex: '1 0 auto' }}>
-            {children}
-          </main>
-          <Footer />
+          <AuthProvider>
+            <header>
+              <Header />
+            </header>
+            <main style={{ flex: '1 0 auto' }}>
+              {children}
+            </main>
+            <Footer />
+          </AuthProvider>
         </ThemeProvider>
       </body>
     </html>

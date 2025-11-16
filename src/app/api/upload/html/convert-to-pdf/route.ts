@@ -1,9 +1,13 @@
 export const runtime = 'nodejs';
 
 import fs from 'fs/promises';
+// ensure cleanup runs if this route is hit first
+import '@/lib/autoCleanup';
 import path from 'path';
 import { execFile as _execFile } from 'child_process';
 import { promisify } from 'util';
+import { checkRateLimit, getAuthUser, getMaxFileSize } from '@/lib/jwtAuth';
+import { sanitizeHtml } from '@/lib/sanitize';
 
 const execFile = promisify(_execFile);
 
@@ -16,6 +20,16 @@ type Body = {
 
 export async function POST(req: Request) {
   try {
+    // Rate limiting
+    const rateCheck = checkRateLimit(req);
+    if (!rateCheck.allowed) {
+      return new Response(JSON.stringify({ error: rateCheck.message }), { status: 429 });
+    }
+
+    // Auth check
+    const user = getAuthUser(req);
+    const maxSize = getMaxFileSize(user);
+
     const body: Body = await req.json();
 
     let html: string | null = null;
@@ -34,9 +48,20 @@ export async function POST(req: Request) {
       return new Response(JSON.stringify({ error: 'html or file is required' }), { status: 400 });
     }
 
+    // Sanitize HTML to prevent XSS
+    html = sanitizeHtml(html);
+
+    // Check HTML size limit
+    const htmlSize = Buffer.byteLength(html, 'utf8');
+    if (htmlSize > maxSize) {
+      const limitMB = Math.floor(maxSize / (1024 * 1024));
+      return new Response(JSON.stringify({ 
+        error: `HTML content too large (max ${limitMB}MB${!user.isAuthenticated ? ' for unauthenticated users' : ''})` 
+      }), { status: 413 });
+    }
+
     // Write the HTML to a temporary file in uploads/ and call the puppeteer
-    // Docker image to render it to a PDF. This keeps puppeteer (and Chromium)
-    // isolated inside a container.
+    // Docker image to render it to a PDF. This keeps puppeteer (and Chromium) isolated inside a container.
     const uploads = path.join(process.cwd(), 'uploads');
     const ts = Date.now();
     const inName = `convert-${ts}.html`;
@@ -67,8 +92,10 @@ export async function POST(req: Request) {
     const containerOut = `/data/${outName}`;
 
     // Run the container mounting uploads at /data (read-write) and invoking the script
+    // Use --network=none for security isolation
     await execFile('docker', [
       'run', '--rm',
+      '--network=none',
       '-v', `${uploads}:/data`,
       dockerImage,
       containerIn, containerOut

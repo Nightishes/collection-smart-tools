@@ -14,8 +14,11 @@ type EditorControlsProps = {
   onDownloadModified: () => void;
   onDownloadOriginal: () => void;
   onDownloadPdf: () => void;
+  onDownloadDocx?: () => void;
+  onDownloadPdfDocx?: () => void;
   onSave: () => void;
   onClear: () => void;
+  isAdmin?: boolean;
 };
 
 export function EditorControls({
@@ -29,8 +32,11 @@ export function EditorControls({
   onDownloadModified,
   onDownloadOriginal,
   onDownloadPdf,
+  onDownloadDocx,
+  onDownloadPdfDocx,
   onSave,
-  onClear
+  onClear,
+  isAdmin = false
 }: EditorControlsProps) {
   return (
     <>
@@ -52,11 +58,14 @@ export function EditorControls({
           />
           Remove embedded data: images (data:image/*)
         </label>
-  <button onClick={onDownloadModified} style={{ marginLeft: 'auto' }} className={styles.ctaButtonIframe}>Download modified HTML</button>
-  <button onClick={onDownloadOriginal} style={{ marginLeft: 8 }} className={styles.ctaButtonIframe}>Download original HTML</button>
+  <button onClick={onDownloadModified} style={{ marginLeft: 'auto' }} className={styles.ctaButtonIframe}>Download as HTML</button>
   <button onClick={onDownloadPdf} style={{ marginLeft: 8 }} className={styles.ctaButtonIframe}>Download as PDF</button>
-  <button onClick={onSave} style={{ marginLeft: 8 }} className={styles.ctaButtonIframe}> Save modified HTML</button>
-  <button onClick={onClear} style={{ marginLeft: 8, border: '1px solid rgba(255,0,0,0.35)' }} className={styles.ctaButtonIframe}>Clear uploads</button>
+  {onDownloadDocx && (
+    <button onClick={onDownloadDocx} style={{ marginLeft: 8 }} className={styles.ctaButtonIframe}>Download as DOCX</button>
+  )}
+  {isAdmin && (
+    <button onClick={onClear} style={{ marginLeft: 8, border: '1px solid rgba(255,0,0,0.35)' }} className={styles.ctaButtonIframe}>Clear uploads</button>
+  )}
       </div>
 
       <div style={{ marginBottom: 16 }}>

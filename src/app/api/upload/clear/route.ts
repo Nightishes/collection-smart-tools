@@ -2,9 +2,14 @@ export const runtime = 'nodejs';
 
 import fs from 'fs/promises';
 import path from 'path';
+import { requireAdmin } from '@/lib/jwtAuth';
 
 export async function POST(req: Request) {
   try {
+    // Require admin authentication
+    const adminCheck = requireAdmin(req);
+    if (adminCheck) return adminCheck;
+
     const uploadsDir = path.join(process.cwd(), 'uploads');
 
     // ensure directory exists

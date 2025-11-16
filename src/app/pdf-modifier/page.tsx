@@ -5,9 +5,11 @@ import { useFileUpload } from './hooks/useFileUpload';
 import { useHtmlModifier } from './hooks/useHtmlModifier';
 import { UploadArea, FileList } from './components/UploadComponents';
 import { EditorControls } from './components/EditorControls';
+import { useAuth } from '../context/AuthContext';
 import styles from "./page.module.css";
 
 export default function PageModifyHtml() {
+  const { isAdmin } = useAuth();
   const inputRef = useRef<HTMLInputElement | null>(null);
   const {
     lastHtmlName,
@@ -89,6 +91,66 @@ export default function PageModifyHtml() {
     }
   };
 
+  const downloadAsDocx = async () => {
+    if (!modifiedHtml) return;
+    try {
+      const res = await fetch('/api/convert/html-to-docx', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ html: modifiedHtml, filename: lastHtmlName ? lastHtmlName.replace(/\.html$/i,'-converted') : 'converted' })
+      });
+      if (!res.ok) {
+        const errText = await res.text();
+        throw new Error('DOCX conversion failed: ' + errText);
+      }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = lastHtmlName ? `${lastHtmlName.replace(/\.html$/i,'')}-converted.docx` : 'converted.docx';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch (err: any) {
+      console.error('DOCX conversion/download failed', err);
+      alert('DOCX conversion failed: ' + (err?.message || err));
+    }
+  };
+
+  const downloadOriginalPdfAsDocx = async () => {
+    const originalPdfEntry = files.find(f => f.name.toLowerCase().endsWith('.pdf'));
+    if (!originalPdfEntry) {
+      alert('No original PDF file found. Upload a PDF first.');
+      return;
+    }
+    try {
+      const safeName = encodeURIComponent(originalPdfEntry.name);
+      const resPdf = await fetch(`/api/upload/pdf?file=${safeName}`);
+      if (!resPdf.ok) throw new Error('Unable to fetch original PDF');
+      const pdfBlob = await resPdf.blob();
+      const form = new FormData();
+      form.append('file', pdfBlob, originalPdfEntry.name);
+      const res = await fetch('/api/convert/pdf-to-docx', { method: 'POST', body: form });
+      if (!res.ok) {
+        const errText = await res.text();
+        throw new Error(errText);
+      }
+      const docxBlob = await res.blob();
+      const url = URL.createObjectURL(docxBlob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = originalPdfEntry.name.replace(/\.pdf$/i, '') + '-original.docx';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch (err: any) {
+      console.error('Original PDF → DOCX failed', err);
+      alert('Original PDF → DOCX failed: ' + (err?.message || err));
+    }
+  };
+
   const saveModified = async () => {
     if (!lastHtmlName) return;
     try {
@@ -149,8 +211,11 @@ export default function PageModifyHtml() {
               onDownloadModified={downloadModified}
               onDownloadOriginal={downloadOriginal}
               onDownloadPdf={downloadAsPdf}
+              onDownloadDocx={downloadAsDocx}
+              onDownloadPdfDocx={downloadOriginalPdfAsDocx}
               onSave={saveModified}
               onClear={clearUploads}
+              isAdmin={isAdmin}
             />
 
             <div style={{ border: '1px solid #ddd', height: 480 }}>

@@ -3,9 +3,17 @@ export const runtime = 'nodejs';
 import fs from 'fs/promises';
 import path from 'path';
 import { modifyHtml } from '../../helpers/htmlModify';
+import { checkRateLimit } from '@/lib/jwtAuth';
+import { sanitizeHtml } from '@/lib/sanitize';
 
 export async function POST(req: Request) {
   try {
+    // Rate limiting
+    const rateCheck = checkRateLimit(req);
+    if (!rateCheck.allowed) {
+      return new Response(JSON.stringify({ error: rateCheck.message }), { status: 429 });
+    }
+
     const body = await req.json();
     const file = String(body?.file || '');
     if (!file) return new Response(JSON.stringify({ error: 'file is required' }), { status: 400 });
@@ -25,10 +33,13 @@ export async function POST(req: Request) {
     // modify server-side using shared helper to ensure consistency
     const { modifiedHtml, imagesRemoved } = modifyHtml(original, opts);
 
+    // Sanitize HTML to prevent XSS
+    const sanitized = sanitizeHtml(modifiedHtml);
+
     // save as modified-<safeName> to avoid overwriting original
     const outName = `modified-${safeName}`;
     const outPath = path.join(uploadsDir, outName);
-    await fs.writeFile(outPath, modifiedHtml, 'utf8');
+    await fs.writeFile(outPath, sanitized, 'utf8');
 
     return new Response(JSON.stringify({ success: true, filename: outName, imagesRemoved }), { status: 200 });
   } catch (err: any) {

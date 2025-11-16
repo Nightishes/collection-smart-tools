@@ -3,11 +3,13 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useTheme } from '../context/ThemeContext';
+import { useAuth } from '../context/AuthContext';
 import styles from './header.module.css';
 
 const Header = () => {
   const pathname = usePathname();
   const { theme, toggleTheme } = useTheme();
+  const { isAuthenticated, isAdmin } = useAuth();
 
   const isActiveLink = (path: string) => {
     return pathname === path ? styles.activeLink : '';
@@ -31,6 +33,20 @@ const Header = () => {
         >
           PDF Modifier
         </Link>
+        <Link 
+          href="/text-converter" 
+          className={`${styles.navLink} ${isActiveLink('/text-converter')}`}
+        >
+          Convert Text
+        </Link>
+        {isAuthenticated && (
+          <Link 
+            href="/login" 
+            className={`${styles.navLink} ${isActiveLink('/login')}`}
+          >
+            {isAdmin ? '👤 Admin' : '👤 User'}
+          </Link>
+        )}
         <button 
           onClick={toggleTheme}
           className={styles.themeToggle}
