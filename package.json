@@ -8,7 +8,10 @@
     "start": "next start",
     "lint": "eslint",
     "test": "vitest",
+    "build:docker": "npm run build:pdf2html && npm run build:puppeteer",
+    "build:pdf2html": "docker build -f Dockerfile.pdf2html -t pdf2html .",
     "build:puppeteer": "docker build -f Dockerfile.puppeteer -t collection-tools-puppeteer .",
+    "test:docker": "node test-docker-setup.js",
     "convert:docker": "powershell -ExecutionPolicy Bypass -File ./scripts/run-convert-docker.ps1 uploads/input.html uploads/output.pdf"
   },
   "dependencies": {

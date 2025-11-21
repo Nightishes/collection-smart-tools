@@ -21,16 +21,40 @@ export function useHtmlModifier() {
 
   useEffect(() => {
     return () => {
-      if (previewUrl) URL.revokeObjectURL(previewUrl);
+      if (previewUrl && previewUrl.startsWith('blob:')) URL.revokeObjectURL(previewUrl);
     };
   }, [previewUrl]);
 
-  const createPreview = (html: string) => {
+  const createPreview = useCallback(async (html: string, htmlName?: string) => {
+    // If we have an htmlName, try to save the modified HTML and serve it via API
+    if (htmlName) {
+      try {
+        // Save the modified HTML to a temporary file
+        const tempName = `preview-${htmlName}`;
+        const response = await fetch('/api/upload/html/save', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ content: html, filename: tempName })
+        });
+        
+        if (response.ok) {
+          // Use the API route to serve the HTML with proper context
+          const apiUrl = `/api/upload/html?file=${encodeURIComponent(tempName)}`;
+          if (previewUrl && previewUrl.startsWith('blob:')) URL.revokeObjectURL(previewUrl);
+          setPreviewUrl(apiUrl);
+          return;
+        }
+      } catch (error) {
+        console.warn('Failed to save preview HTML, falling back to blob URL:', error);
+      }
+    }
+    
+    // Fallback to blob URL if API save fails
     const blob = new Blob([html], { type: 'text/html' });
     const url = URL.createObjectURL(blob);
-    if (previewUrl) URL.revokeObjectURL(previewUrl);
+    if (previewUrl && previewUrl.startsWith('blob:')) URL.revokeObjectURL(previewUrl);
     setPreviewUrl(url);
-  };
+  }, [previewUrl]);
 
   const fetchHtmlContent = useCallback(async (htmlName: string) => {
     try {
@@ -43,7 +67,7 @@ export function useHtmlModifier() {
       const { modifiedHtml: initial, styleInfo: newStyleInfo } = modifyHtml(text, { ...options, fcOverrides: fcOverrides, fsOverrides: fsOverrides });
       setHtmlContent(initial);
       setModifiedHtml(initial);
-      createPreview(initial);
+      createPreview(initial, htmlName);
       setStyleInfo(newStyleInfo);
       // initialize overrides from discovered styleInfo if not already present
       const initialFc: Record<string, string> = {};
@@ -59,7 +83,7 @@ export function useHtmlModifier() {
     } catch (err) {
       console.error('Error fetching html', err);
     }
-  }, [options, fcOverrides, fsOverrides]);
+  }, [options, fcOverrides, fsOverrides, createPreview]);
 
   const updateOption = <K extends keyof ModifyOptions>(key: K, value: ModifyOptions[K]) => {
     const newOptions = { ...options, [key]: value };
@@ -69,7 +93,7 @@ export function useHtmlModifier() {
       const { modifiedHtml: newHtml } = modifyHtml(originalHtml, { ...newOptions, fcOverrides, fsOverrides });
       setModifiedHtml(newHtml);
       setHtmlContent(newHtml);
-      createPreview(newHtml);
+      createPreview(newHtml, lastHtmlName || undefined);
     }
   };
 
@@ -87,7 +111,7 @@ export function useHtmlModifier() {
           const { modifiedHtml: newHtml } = modifyHtml(originalHtml, { ...options, fcOverrides: next, fsOverrides });
           setModifiedHtml(newHtml);
           setHtmlContent(newHtml);
-          createPreview(newHtml);
+          createPreview(newHtml, lastHtmlName || undefined);
         }
         return next;
       });
@@ -98,7 +122,7 @@ export function useHtmlModifier() {
           const { modifiedHtml: newHtml } = modifyHtml(originalHtml, { ...options, fcOverrides, fsOverrides: next });
           setModifiedHtml(newHtml);
           setHtmlContent(newHtml);
-          createPreview(newHtml);
+          createPreview(newHtml, lastHtmlName || undefined);
         }
         return next;
       });

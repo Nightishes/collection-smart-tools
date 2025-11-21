@@ -85,9 +85,10 @@ export default function PageModifyHtml() {
       a.click();
       a.remove();
       URL.revokeObjectURL(url);
-    } catch (err: any) {
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : String(err);
       console.error('PDF conversion/download failed', err);
-      alert('PDF conversion failed: ' + (err?.message || err));
+      alert('PDF conversion failed: ' + errorMessage);
     }
   };
 
@@ -112,9 +113,10 @@ export default function PageModifyHtml() {
       a.click();
       a.remove();
       URL.revokeObjectURL(url);
-    } catch (err: any) {
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : String(err);
       console.error('DOCX conversion/download failed', err);
-      alert('DOCX conversion failed: ' + (err?.message || err));
+      alert('DOCX conversion failed: ' + errorMessage);
     }
   };
 
@@ -145,9 +147,10 @@ export default function PageModifyHtml() {
       a.click();
       a.remove();
       URL.revokeObjectURL(url);
-    } catch (err: any) {
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : String(err);
       console.error('Original PDF → DOCX failed', err);
-      alert('Original PDF → DOCX failed: ' + (err?.message || err));
+      alert('Original PDF → DOCX failed: ' + errorMessage);
     }
   };
 
@@ -218,13 +221,25 @@ export default function PageModifyHtml() {
               isAdmin={isAdmin}
             />
 
-            <div style={{ border: '1px solid #ddd', height: 480 }}>
-              {previewUrl && (
+            <div style={{ border: '1px solid #ddd', height: 480, backgroundColor: '#fafafa' }}>
+              {previewUrl ? (
                 <iframe 
                   title="preview" 
                   src={previewUrl} 
-                  style={{ width: '100%', height: '100%', border: 0 }} 
+                  style={{ width: '100%', height: '100%', border: 0, backgroundColor: 'white' }} 
+                  onError={(e) => console.error('Iframe load error:', e)}
                 />
+              ) : (
+                <div style={{ 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  justifyContent: 'center', 
+                  height: '100%', 
+                  color: '#666',
+                  fontSize: '14px'
+                }}>
+                  Upload a PDF file to see the preview
+                </div>
               )}
             </div>
           </section>
