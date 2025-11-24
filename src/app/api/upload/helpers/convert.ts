@@ -246,10 +246,10 @@ export async function convertPdfToHtml(
           "--font-size-multiplier",
           "4.0", // Default value for better browser compatibility
           path.basename(inputAbs), // Input PDF file
-          path.basename(outHtml), // Output filename (with .html extension)
+          path.basename(outHtml), // Output filename with .html extension
         ],
         {
-          timeout: 60000, // 60 second timeout
+          timeout: 120000, // 120 second timeout for large PDFs
         }
       );
 

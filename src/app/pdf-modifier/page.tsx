@@ -1,11 +1,11 @@
 ﻿"use client";
 
-import { useRef } from 'react';
-import { useFileUpload } from './hooks/useFileUpload';
-import { useHtmlModifier } from './hooks/useHtmlModifier';
-import { UploadArea, FileList } from './components/UploadComponents';
-import { EditorControls } from './components/EditorControls';
-import { useAuth } from '../context/AuthContext';
+import { useRef } from "react";
+import { useFileUpload } from "./hooks/useFileUpload";
+import { useHtmlModifier } from "./hooks/useHtmlModifier";
+import { UploadArea, FileList } from "./components/UploadComponents";
+import { EditorControls } from "./components/EditorControls";
+import { useAuth } from "../context/AuthContext";
 import styles from "./page.module.css";
 
 export default function PageModifyHtml() {
@@ -24,18 +24,21 @@ export default function PageModifyHtml() {
     fcOverrides,
     fsOverrides,
     updateClassOverride,
-    resetClassOverride
+    resetClassOverride,
   } = useHtmlModifier();
 
-  const { files, onFilesSelected, clearFiles } = useFileUpload(fetchHtmlContent);
+  const { files, onFilesSelected, clearFiles } = useFileUpload(
+    fetchHtmlContent,
+    reset
+  );
 
   const downloadModified = async () => {
     if (!modifiedHtml) return;
-    const blob = new Blob([modifiedHtml], { type: 'text/html' });
+    const blob = new Blob([modifiedHtml], { type: "text/html" });
     const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
+    const a = document.createElement("a");
     a.href = url;
-    a.download = lastHtmlName ? `modified-${lastHtmlName}` : 'converted.html';
+    a.download = lastHtmlName ? `modified-${lastHtmlName}` : "converted.html";
     document.body.appendChild(a);
     a.click();
     a.remove();
@@ -45,12 +48,14 @@ export default function PageModifyHtml() {
   const downloadOriginal = async () => {
     if (!lastHtmlName) return;
     try {
-      const res = await fetch(`/api/upload/html?file=${encodeURIComponent(lastHtmlName)}`);
-      if (!res.ok) throw new Error('Failed to fetch HTML');
+      const res = await fetch(
+        `/api/upload/html?file=${encodeURIComponent(lastHtmlName)}`
+      );
+      if (!res.ok) throw new Error("Failed to fetch HTML");
       const text = await res.text();
-      const blob = new Blob([text], { type: 'text/html' });
+      const blob = new Blob([text], { type: "text/html" });
       const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
+      const a = document.createElement("a");
       a.href = url;
       a.download = lastHtmlName;
       document.body.appendChild(a);
@@ -58,138 +63,161 @@ export default function PageModifyHtml() {
       a.remove();
       URL.revokeObjectURL(url);
     } catch (err) {
-      console.error('Download failed', err);
+      console.error("Download failed", err);
     }
   };
 
   const downloadAsPdf = async () => {
     if (!modifiedHtml) return;
     try {
-      const res = await fetch('/api/upload/html/convert-to-pdf', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+      const res = await fetch("/api/upload/html/convert-to-pdf", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ html: modifiedHtml }),
       });
 
       if (!res.ok) {
         const errText = await res.text();
-        throw new Error('Conversion failed: ' + errText);
+        throw new Error("Conversion failed: " + errText);
       }
 
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
+      const a = document.createElement("a");
       a.href = url;
-      a.download = lastHtmlName ? `${lastHtmlName.replace(/\.html$/i, '')}-converted.pdf` : 'converted.pdf';
+      a.download = lastHtmlName
+        ? `${lastHtmlName.replace(/\.html$/i, "")}-converted.pdf`
+        : "converted.pdf";
       document.body.appendChild(a);
       a.click();
       a.remove();
       URL.revokeObjectURL(url);
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : String(err);
-      console.error('PDF conversion/download failed', err);
-      alert('PDF conversion failed: ' + errorMessage);
+      console.error("PDF conversion/download failed", err);
+      alert("PDF conversion failed: " + errorMessage);
     }
   };
 
   const downloadAsDocx = async () => {
     if (!modifiedHtml) return;
     try {
-      const res = await fetch('/api/convert/html-to-docx', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ html: modifiedHtml, filename: lastHtmlName ? lastHtmlName.replace(/\.html$/i,'-converted') : 'converted' })
+      const res = await fetch("/api/convert/html-to-docx", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          html: modifiedHtml,
+          filename: lastHtmlName
+            ? lastHtmlName.replace(/\.html$/i, "-converted")
+            : "converted",
+        }),
       });
       if (!res.ok) {
         const errText = await res.text();
-        throw new Error('DOCX conversion failed: ' + errText);
+        throw new Error("DOCX conversion failed: " + errText);
       }
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
+      const a = document.createElement("a");
       a.href = url;
-      a.download = lastHtmlName ? `${lastHtmlName.replace(/\.html$/i,'')}-converted.docx` : 'converted.docx';
+      a.download = lastHtmlName
+        ? `${lastHtmlName.replace(/\.html$/i, "")}-converted.docx`
+        : "converted.docx";
       document.body.appendChild(a);
       a.click();
       a.remove();
       URL.revokeObjectURL(url);
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : String(err);
-      console.error('DOCX conversion/download failed', err);
-      alert('DOCX conversion failed: ' + errorMessage);
+      console.error("DOCX conversion/download failed", err);
+      alert("DOCX conversion failed: " + errorMessage);
     }
   };
 
   const downloadOriginalPdfAsDocx = async () => {
-    const originalPdfEntry = files.find(f => f.name.toLowerCase().endsWith('.pdf'));
+    const originalPdfEntry = files.find((f) =>
+      f.name.toLowerCase().endsWith(".pdf")
+    );
     if (!originalPdfEntry) {
-      alert('No original PDF file found. Upload a PDF first.');
+      alert("No original PDF file found. Upload a PDF first.");
       return;
     }
     try {
       const safeName = encodeURIComponent(originalPdfEntry.name);
       const resPdf = await fetch(`/api/upload/pdf?file=${safeName}`);
-      if (!resPdf.ok) throw new Error('Unable to fetch original PDF');
+      if (!resPdf.ok) throw new Error("Unable to fetch original PDF");
       const pdfBlob = await resPdf.blob();
       const form = new FormData();
-      form.append('file', pdfBlob, originalPdfEntry.name);
-      const res = await fetch('/api/convert/pdf-to-docx', { method: 'POST', body: form });
+      form.append("file", pdfBlob, originalPdfEntry.name);
+      const res = await fetch("/api/convert/pdf-to-docx", {
+        method: "POST",
+        body: form,
+      });
       if (!res.ok) {
         const errText = await res.text();
         throw new Error(errText);
       }
       const docxBlob = await res.blob();
       const url = URL.createObjectURL(docxBlob);
-      const a = document.createElement('a');
+      const a = document.createElement("a");
       a.href = url;
-      a.download = originalPdfEntry.name.replace(/\.pdf$/i, '') + '-original.docx';
+      a.download =
+        originalPdfEntry.name.replace(/\.pdf$/i, "") + "-original.docx";
       document.body.appendChild(a);
       a.click();
       a.remove();
       URL.revokeObjectURL(url);
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : String(err);
-      console.error('Original PDF → DOCX failed', err);
-      alert('Original PDF → DOCX failed: ' + errorMessage);
+      console.error("Original PDF → DOCX failed", err);
+      alert("Original PDF → DOCX failed: " + errorMessage);
     }
   };
 
   const saveModified = async () => {
     if (!lastHtmlName) return;
     try {
-      const res = await fetch('/api/upload/html/save', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ file: lastHtmlName, options: { ...options, fcOverrides, fsOverrides } }),
+      const res = await fetch("/api/upload/html/save", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          file: lastHtmlName,
+          options: { ...options, fcOverrides, fsOverrides },
+        }),
       });
       const json = await res.json();
       if (res.ok && json.success) {
         await fetchHtmlContent(json.filename);
-        alert('Modified HTML saved as ' + json.filename);
+        alert("Modified HTML saved as " + json.filename);
       } else {
-        alert('Save failed: ' + (json.error || 'unknown'));
+        alert("Save failed: " + (json.error || "unknown"));
       }
     } catch (err) {
-      console.error('Save error', err);
-      alert('Save failed');
+      console.error("Save error", err);
+      alert("Save failed");
     }
   };
 
   const clearUploads = async () => {
-    if (!confirm('Delete all files in uploads/? This cannot be undone. Continue?')) return;
+    if (
+      !confirm("Delete all files in uploads/? This cannot be undone. Continue?")
+    )
+      return;
     try {
-      const res = await fetch('/api/upload/clear', { method: 'POST' });
+      const res = await fetch("/api/upload/clear", { method: "POST" });
       const json = await res.json();
       if (res.ok && json.success) {
         clearFiles();
         reset();
-        alert('Cleared uploads. Removed: ' + (json.removed?.length ?? 0) + ' items.');
+        alert(
+          "Cleared uploads. Removed: " + (json.removed?.length ?? 0) + " items."
+        );
       } else {
-        alert('Clear failed: ' + (json.error || 'unknown'));
+        alert("Clear failed: " + (json.error || "unknown"));
       }
     } catch (err) {
-      console.error('Clear uploads failed', err);
-      alert('Clear failed');
+      console.error("Clear uploads failed", err);
+      alert("Clear failed");
     }
   };
 
@@ -221,23 +249,37 @@ export default function PageModifyHtml() {
               isAdmin={isAdmin}
             />
 
-            <div style={{ border: '1px solid #ddd', height: 480, backgroundColor: '#fafafa' }}>
+            <div
+              style={{
+                border: "1px solid #ddd",
+                height: "calc(100vh - 400px)",
+                minHeight: "800px",
+                backgroundColor: "#fafafa",
+              }}
+            >
               {previewUrl ? (
-                <iframe 
-                  title="preview" 
-                  src={previewUrl} 
-                  style={{ width: '100%', height: '100%', border: 0, backgroundColor: 'white' }} 
-                  onError={(e) => console.error('Iframe load error:', e)}
+                <iframe
+                  title="preview"
+                  src={previewUrl}
+                  style={{
+                    width: "100%",
+                    height: "100%",
+                    border: 0,
+                    backgroundColor: "white",
+                  }}
+                  onError={(e) => console.error("Iframe load error:", e)}
                 />
               ) : (
-                <div style={{ 
-                  display: 'flex', 
-                  alignItems: 'center', 
-                  justifyContent: 'center', 
-                  height: '100%', 
-                  color: '#666',
-                  fontSize: '14px'
-                }}>
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    height: "100%",
+                    color: "#666",
+                    fontSize: "14px",
+                  }}
+                >
                   Upload a PDF file to see the preview
                 </div>
               )}

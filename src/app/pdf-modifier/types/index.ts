@@ -1,6 +1,6 @@
 export type UploadState = {
   name: string;
-  status: 'idle' | 'uploading' | 'done' | 'error';
+  status: "idle" | "uploading" | "done" | "error";
   message?: string;
 };
 

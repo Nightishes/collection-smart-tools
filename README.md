@@ -106,15 +106,21 @@ After building the images, you can use them directly:
 1. **PDF to HTML conversion:**
 
 ```powershell
-docker run --rm -v ${PWD}:/workspace -w /workspace pdf2html uploads/input.pdf output
+docker run --rm -v ${PWD}:/workspace -w /workspace pdf2html uploads/input.pdf uploads/output
 ```
+
+Note: pdf2htmlEX will create `uploads/output.html` automatically.
 
 2. **HTML to PDF conversion:**
 
 ```powershell
-# from project root; ensure uploads\ contains input.html
-docker run --rm -v ${PWD}:/app -w /app collection-tools-puppeteer \
-	node scripts/convert-html-to-pdf.js uploads/input.html uploads/output.pdf
+docker run --rm -v ${PWD}:/workspace collection-tools-puppeteer /workspace/uploads/input.html /workspace/uploads/output.pdf
+```
+
+3. **Unified workflow (PDF → HTML → PDF):**
+
+```powershell
+docker run --rm -v ${PWD}:/workspace -w /workspace pdf2html uploads/input.pdf uploads/output ; docker run --rm -v ${PWD}:/workspace collection-tools-puppeteer /workspace/uploads/output.html /workspace/uploads/final.pdf
 ```
 
 ### Requirements
