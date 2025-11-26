@@ -8,15 +8,16 @@
     "start": "next start",
     "lint": "eslint",
     "test": "vitest",
-    "build:docker": "docker build -f Dockerfile.pdf2html -t pdf2html . ; docker build -f Dockerfile.puppeteer -t collection-tools-puppeteer .",
-    "build:pdf2html": "docker build -f Dockerfile.pdf2html -t pdf2html .",
-    "build:puppeteer": "docker build -f Dockerfile.puppeteer -t collection-tools-puppeteer .",
-    "test:docker": "node test-docker-setup.js",
-    "convert:docker": "powershell -ExecutionPolicy Bypass -File ./scripts/run-convert-docker.ps1 uploads/input.html uploads/output.pdf"
+    "docker:build": "docker build -f Dockerfile.pdf2html -t pdf2html . ; docker build -f Dockerfile.puppeteer -t collection-tools-puppeteer . ; docker-compose pull clamav",
+    "docker:test": "powershell -ExecutionPolicy Bypass -File ./test-docker-containers.ps1",
+    "docker:up": "docker-compose up -d",
+    "docker:down": "docker-compose down",
+    "docker:logs": "docker-compose logs -f"
   },
   "dependencies": {
     "@types/domhandler": "^2.4.5",
     "cheerio": "^1.1.2",
+    "clamscan": "^2.4.0",
     "css": "^3.0.0",
     "docx": "^9.5.1",
     "form-data": "^4.0.5",

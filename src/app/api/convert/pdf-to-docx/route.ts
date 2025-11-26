@@ -125,7 +125,7 @@ export async function POST(req: Request) {
       }
 
       // Split text into lines and create paragraphs
-      const lines = pdfData.text.split("\n").map((line) => line.trim());
+      const lines = pdfData.text.split("\n").map((line: string) => line.trim());
       const paragraphs: Paragraph[] = [];
 
       for (const line of lines) {
@@ -172,7 +172,7 @@ export async function POST(req: Request) {
     const baseName = path.basename(file.name, path.extname(file.name));
     const outName = (requestedName || baseName) + ".docx";
 
-    return new NextResponse(docxBuffer, {
+    return new NextResponse(new Uint8Array(docxBuffer), {
       status: 200,
       headers: {
         "Content-Type":

@@ -1,0 +1,35 @@
+version: "3.8"
+
+services:
+  # ClamAV antivirus daemon
+  clamav:
+    image: clamav/clamav:latest
+    container_name: collection-tools-clamav
+    ports:
+      - "3310:3310"
+    volumes:
+      - clamav-data:/var/lib/clamav
+    environment:
+      - CLAMAV_NO_FRESHCLAM=false # Enable automatic virus definition updates
+    healthcheck:
+      test: ["CMD", "/usr/local/bin/clamdcheck.sh"]
+      interval: 60s
+      timeout: 10s
+      retries: 3
+      start_period: 300s # ClamAV takes time to load virus definitions
+    restart: unless-stopped
+    networks:
+      - collection-tools
+
+  # Optional: Existing services can be added here
+  # pdf2html:
+  #   image: pdf2html:latest
+  #   ...
+
+networks:
+  collection-tools:
+    driver: bridge
+
+volumes:
+  clamav-data:
+    driver: local

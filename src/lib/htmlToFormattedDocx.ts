@@ -51,8 +51,8 @@ function parseFontSize(fontSize: string | undefined): number | undefined {
 /**
  * Extract inline styles from an element
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function extractStyles(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   element: any,
   $: cheerio.CheerioAPI
 ): Partial<TextStyle> {

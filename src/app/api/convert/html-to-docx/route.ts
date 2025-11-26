@@ -53,7 +53,9 @@ export async function POST(req: Request) {
     console.log(
       "✓ HTML→DOCX conversion successful with formatting preservation"
     );
-    return new NextResponse(buffer, {
+
+    const uint8Array = new Uint8Array(buffer);
+    return new NextResponse(uint8Array, {
       status: 200,
       headers: {
         "Content-Type":
