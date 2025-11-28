@@ -277,6 +277,21 @@ export function deleteElement(html: string, selectorPath: number[]): string {
     selectorPath
   );
 
+  // Validate HTML structure before parsing (security check)
+  // Check for dangerous patterns that might have bypassed sanitization
+  const dangerousPatterns = [
+    /<script[^>]*>/gi,
+    /javascript:/gi,
+    /on\w+\s*=/gi, // event handlers
+  ];
+  
+  for (const pattern of dangerousPatterns) {
+    if (pattern.test(html)) {
+      console.warn("deleteElement: Dangerous pattern detected in HTML, aborting");
+      return html;
+    }
+  }
+
   // Create a temporary container to work with the HTML
   const container = document.createElement("div");
   container.innerHTML = html;
@@ -289,8 +304,17 @@ export function deleteElement(html: string, selectorPath: number[]): string {
     return html;
   }
 
-  // Parse just the body content
+  // Parse just the body content with additional validation
   const bodyContent = bodyMatch[1];
+  
+  // Secondary validation: ensure body content doesn't contain bypassed dangerous content
+  for (const pattern of dangerousPatterns) {
+    if (pattern.test(bodyContent)) {
+      console.warn("deleteElement: Dangerous pattern in body content, aborting");
+      return html;
+    }
+  }
+  
   const bodyContainer = document.createElement("div");
   bodyContainer.innerHTML = bodyContent;
 

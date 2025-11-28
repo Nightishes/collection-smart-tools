@@ -322,7 +322,7 @@ export default function PageModifyHtml() {
                   highlightElement(parent);
                   const path = getElementPath(parent);
                   console.log("Parent selected, new path:", path);
-                  window.parent.postMessage({ type: "ELEMENT_SELECTED", path }, "*");
+                  window.parent.postMessage({ type: "ELEMENT_SELECTED", path }, window.location.origin);
                 }
               }
 
@@ -336,14 +336,14 @@ export default function PageModifyHtml() {
                   if (selectedElement) {
                     const path = getElementPath(selectedElement);
                     console.log("Deleting element via keyboard shortcut, path:", path);
-                    window.parent.postMessage({ type: "DELETE_ELEMENT", path }, "*");
+                    window.parent.postMessage({ type: "DELETE_ELEMENT", path }, window.location.origin);
                   }
                 } else if (e.key === "Escape") {
                   if (selectedElement) {
                     selectedElement.style.outline = "";
                     selectedElement.style.backgroundColor = "";
                     selectedElement = null;
-                    window.parent.postMessage({ type: "ELEMENT_SELECTED", path: null }, "*");
+                    window.parent.postMessage({ type: "ELEMENT_SELECTED", path: null }, window.location.origin);
                   }
                 }
               });
@@ -359,7 +359,7 @@ export default function PageModifyHtml() {
                   console.log("Element path:", path);
                   console.log("Sending message to parent with path:", path);
                   console.log("💡 Press 'P' to select parent element, 'ESC' to deselect");
-                  window.parent.postMessage({ type: "ELEMENT_SELECTED", path }, "*");
+                  window.parent.postMessage({ type: "ELEMENT_SELECTED", path }, window.location.origin);
                 }
               }, true);
             })();

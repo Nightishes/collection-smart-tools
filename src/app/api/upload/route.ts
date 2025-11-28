@@ -2,7 +2,7 @@ export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 // initialize periodic cleanup of old uploaded/generated files
-import "@/lib/autoCleanup";
+import { trackUpload, markUploadSuccess } from "@/lib/autoCleanup";
 import { saveUploadedFile } from "./helpers/upload";
 import { convertPdfToHtml } from "./helpers/convert";
 import { scanUploadedFile } from "@/lib/virusScanner";
@@ -61,6 +61,9 @@ export async function POST(req: Request) {
     const sanitizedName = sanitizeFilename(originalName, ".pdf");
 
     const result = await saveUploadedFile(buffer, sanitizedName);
+    
+    // Track upload for cleanup (initially marked as not successful)
+    trackUpload(result.filename, false);
 
     // Virus scan uploaded file
     const virusScanResult = await scanUploadedFile(result.path);
@@ -77,6 +80,10 @@ export async function POST(req: Request) {
       const conv = await convertPdfToHtml(result.path);
       if (conv.success) {
         const htmlName = path.basename(conv.htmlPath);
+        
+        // Mark upload as successful (will use normal retention period)
+        markUploadSuccess(result.filename);
+        
         const resp: any = {
           success: true,
           filename: result.filename,
@@ -93,8 +100,12 @@ export async function POST(req: Request) {
       }
     } catch (err) {
       console.warn("PDF->HTML conversion failed", err);
+      // Upload stays marked as failed, will be cleaned up in 5 minutes
     }
 
+    // Even if conversion failed, mark as successful since file was uploaded
+    // (conversion failure shouldn't trigger aggressive cleanup)
+    markUploadSuccess(result.filename);
     return NextResponse.json({ success: true, filename: result.filename });
   } catch (err) {
     console.error("Upload error", err);
