@@ -61,7 +61,7 @@ export async function POST(req: Request) {
     const sanitizedName = sanitizeFilename(originalName, ".pdf");
 
     const result = await saveUploadedFile(buffer, sanitizedName);
-    
+
     // Track upload for cleanup (initially marked as not successful)
     trackUpload(result.filename, false);
 
@@ -80,10 +80,10 @@ export async function POST(req: Request) {
       const conv = await convertPdfToHtml(result.path);
       if (conv.success) {
         const htmlName = path.basename(conv.htmlPath);
-        
+
         // Mark upload as successful (will use normal retention period)
         markUploadSuccess(result.filename);
-        
+
         const resp: any = {
           success: true,
           filename: result.filename,

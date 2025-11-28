@@ -4,6 +4,7 @@ import fs from "fs/promises";
 import path from "path";
 import { checkRateLimit } from "@/lib/jwtAuth";
 import { sanitizeHtml, isPdf2HtmlExContent } from "@/lib/sanitize";
+import compression from "@/lib/compression";
 
 export async function GET(req: Request) {
   try {
@@ -36,9 +37,19 @@ export async function GET(req: Request) {
     const isPdf2Html = isPdf2HtmlExContent(content);
     const sanitized = sanitizeHtml(content, { preservePdf2HtmlEx: isPdf2Html });
 
-    return new Response(sanitized, {
-      headers: { "Content-Type": "text/html; charset=utf-8" },
-    });
+    // Apply compression if client supports it
+    const acceptEncoding = req.headers.get("accept-encoding");
+    const result = await compression.compressBuffer(
+      Buffer.from(sanitized),
+      acceptEncoding
+    );
+
+    const headers: Record<string, string> = {
+      "Content-Type": "text/html; charset=utf-8",
+      ...result.headers,
+    };
+
+    return new Response(result.data, { headers });
   } catch (err: any) {
     console.error("Error serving html", err?.message || err);
     return new Response(JSON.stringify({ error: "Not found" }), {

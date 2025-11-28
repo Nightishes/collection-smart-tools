@@ -1,5 +1,6 @@
 # Security Fixes Implemented
-*Date: November 28, 2025*
+
+_Date: November 28, 2025_
 
 ## 🔒 Critical Security Fixes
 
@@ -8,18 +9,24 @@
 **Issue**: Using `postMessage(..., "*")` allowed any website to receive messages from the iframe, creating a potential information disclosure and XSS risk.
 
 **Files Changed**:
+
 - `src/app/pdf-modifier/page.tsx` (4 instances fixed)
 
 **Changes Made**:
+
 ```typescript
 // BEFORE (INSECURE):
 window.parent.postMessage({ type: "ELEMENT_SELECTED", path }, "*");
 
 // AFTER (SECURE):
-window.parent.postMessage({ type: "ELEMENT_SELECTED", path }, window.location.origin);
+window.parent.postMessage(
+  { type: "ELEMENT_SELECTED", path },
+  window.location.origin
+);
 ```
 
 **Locations Fixed**:
+
 1. Line ~325: Parent element selection
 2. Line ~339: Delete element keyboard shortcut
 3. Line ~346: Escape key deselection
@@ -34,9 +41,11 @@ window.parent.postMessage({ type: "ELEMENT_SELECTED", path }, window.location.or
 **Issue**: Using `innerHTML` on user-provided HTML could lead to XSS if sanitization was bypassed.
 
 **File Changed**:
+
 - `src/lib/htmlModify.ts`
 
 **Changes Made**:
+
 ```typescript
 // Added secondary validation before innerHTML
 const dangerousPatterns = [
@@ -62,7 +71,8 @@ for (const pattern of dangerousPatterns) {
 }
 ```
 
-**Impact**: 
+**Impact**:
+
 - Double-layer protection against XSS
 - Validates both full HTML and body content
 - Aborts operation if dangerous patterns detected
@@ -75,12 +85,14 @@ for (const pattern of dangerousPatterns) {
 **Issue**: Failed or interrupted uploads remained on disk indefinitely, wasting storage.
 
 **Files Changed**:
+
 - `src/lib/autoCleanup.ts` (enhanced with tracking)
 - `src/app/api/upload/route.ts` (integrated tracking)
 
 **Changes Made**:
 
 #### Upload Tracking Registry
+
 ```typescript
 type UploadTracker = {
   filename: string;
@@ -92,16 +104,19 @@ const uploadRegistry = new Map<string, UploadTracker>();
 ```
 
 #### Two-Tier Cleanup System
+
 - **Failed uploads**: Deleted after 5 minutes
 - **Successful uploads**: Deleted after 60 minutes (configurable)
 
 #### New Functions
+
 ```typescript
-export function trackUpload(filename: string, success: boolean = false)
-export function markUploadSuccess(filename: string)
+export function trackUpload(filename: string, success: boolean = false);
+export function markUploadSuccess(filename: string);
 ```
 
 #### Integration in Upload Route
+
 ```typescript
 // 1. Track upload immediately after save
 trackUpload(result.filename, false);
@@ -117,6 +132,7 @@ markUploadSuccess(result.filename);
 ```
 
 **Impact**:
+
 - Failed uploads cleaned up in 5 minutes
 - Successful uploads follow normal retention (60 minutes default)
 - Prevents disk space accumulation from failed operations
@@ -127,13 +143,15 @@ markUploadSuccess(result.filename);
 ## 📊 Summary Statistics
 
 ### Security Issues Resolved
-| Issue | Severity | Status | Files Changed |
-|-------|----------|--------|---------------|
-| postMessage wildcard origin | CRITICAL | ✅ Fixed | 1 |
-| innerHTML without validation | MEDIUM | ✅ Hardened | 1 |
-| Failed upload cleanup | MEDIUM | ✅ Implemented | 2 |
+
+| Issue                        | Severity | Status         | Files Changed |
+| ---------------------------- | -------- | -------------- | ------------- |
+| postMessage wildcard origin  | CRITICAL | ✅ Fixed       | 1             |
+| innerHTML without validation | MEDIUM   | ✅ Hardened    | 1             |
+| Failed upload cleanup        | MEDIUM   | ✅ Implemented | 2             |
 
 ### Lines Changed
+
 - **Added**: ~80 lines (validation, tracking)
 - **Modified**: ~15 lines (postMessage origins)
 - **Total files changed**: 4
@@ -143,15 +161,17 @@ markUploadSuccess(result.filename);
 ## 🧪 Testing Recommendations
 
 ### 1. Test postMessage Security
+
 ```javascript
 // In browser console on a different origin:
-window.addEventListener('message', (e) => {
-  console.log('Intercepted:', e.data);
+window.addEventListener("message", (e) => {
+  console.log("Intercepted:", e.data);
 });
 // Should NOT receive messages after fix
 ```
 
 ### 2. Test innerHTML Validation
+
 ```typescript
 // Try injecting dangerous HTML:
 const malicious = '<script>alert("xss")</script><div>content</div>';
@@ -160,6 +180,7 @@ deleteElement(malicious, [0]);
 ```
 
 ### 3. Test Failed Upload Cleanup
+
 ```powershell
 # 1. Start server
 npm run dev
@@ -175,6 +196,7 @@ ls uploads/
 ```
 
 ### 4. Test Successful Upload Retention
+
 ```powershell
 # 1. Upload valid PDF
 curl -F "file=@valid.pdf" http://localhost:3000/api/upload
@@ -190,16 +212,19 @@ curl -F "file=@valid.pdf" http://localhost:3000/api/upload
 ## 🔐 Security Posture Improvement
 
 ### Before Fixes
+
 - **Security Score**: 7.5/10
 - **Critical Issues**: 2
 - **Medium Issues**: 1
 
 ### After Fixes
+
 - **Security Score**: 9.0/10 ⬆️ +1.5
 - **Critical Issues**: 0 ✅
 - **Medium Issues**: 0 ✅
 
 ### Remaining Recommendations (Low Priority)
+
 1. Implement password hashing (bcrypt)
 2. Add environment variable validation
 3. Add Content-Security-Policy header
@@ -210,6 +235,7 @@ curl -F "file=@valid.pdf" http://localhost:3000/api/upload
 ## 📝 Configuration
 
 ### Environment Variables (No Changes Required)
+
 ```env
 # Failed upload cleanup is automatic (5 minutes)
 # Successful upload retention is configurable:
@@ -217,7 +243,9 @@ UPLOAD_RETENTION_MINUTES=60  # Default
 ```
 
 ### Monitoring
+
 Check logs for cleanup activity:
+
 ```
 [autoCleanup] Removed 2 failed upload(s) (> 5m): file1.pdf, file2.pdf
 [autoCleanup] Removed 1 expired file(s) (> 60m): old-file.pdf
@@ -228,16 +256,19 @@ Check logs for cleanup activity:
 ## 🎯 Next Steps
 
 ### Immediate (Done)
+
 - ✅ Fix postMessage wildcard origin
 - ✅ Harden innerHTML usage
 - ✅ Implement failed upload cleanup
 
 ### High Priority (Recommended)
+
 1. Test all fixes in production-like environment
 2. Monitor logs for cleanup activity
 3. Verify no errors in browser console
 
 ### Medium Priority (Future)
+
 1. Update SECURITY-AUDIT.md with new scores
 2. Add unit tests for validation functions
 3. Document cleanup behavior in README

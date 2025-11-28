@@ -284,10 +284,12 @@ export function deleteElement(html: string, selectorPath: number[]): string {
     /javascript:/gi,
     /on\w+\s*=/gi, // event handlers
   ];
-  
+
   for (const pattern of dangerousPatterns) {
     if (pattern.test(html)) {
-      console.warn("deleteElement: Dangerous pattern detected in HTML, aborting");
+      console.warn(
+        "deleteElement: Dangerous pattern detected in HTML, aborting"
+      );
       return html;
     }
   }
@@ -306,15 +308,17 @@ export function deleteElement(html: string, selectorPath: number[]): string {
 
   // Parse just the body content with additional validation
   const bodyContent = bodyMatch[1];
-  
+
   // Secondary validation: ensure body content doesn't contain bypassed dangerous content
   for (const pattern of dangerousPatterns) {
     if (pattern.test(bodyContent)) {
-      console.warn("deleteElement: Dangerous pattern in body content, aborting");
+      console.warn(
+        "deleteElement: Dangerous pattern in body content, aborting"
+      );
       return html;
     }
   }
-  
+
   const bodyContainer = document.createElement("div");
   bodyContainer.innerHTML = bodyContent;
 

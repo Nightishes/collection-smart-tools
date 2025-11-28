@@ -1,5 +1,5 @@
-import fs from 'fs/promises';
-import path from 'path';
+import fs from "fs/promises";
+import path from "path";
 
 // Track failed/orphaned uploads for cleanup
 type UploadTracker = {
@@ -28,7 +28,7 @@ const FAILED_UPLOAD_MAX_AGE_MS = 5 * 60 * 1000;
 // Cleanup interval: every 5 minutes (not configurable for now)
 const INTERVAL_MS = 5 * 60 * 1000;
 // Files to ignore
-const IGNORE = new Set<string>(['.gitkeep']);
+const IGNORE = new Set<string>([".gitkeep"]);
 
 /**
  * Register an upload attempt
@@ -53,7 +53,7 @@ export function markUploadSuccess(filename: string) {
 
 async function cleanupOnce() {
   try {
-    const uploadsDir = path.join(process.cwd(), 'uploads');
+    const uploadsDir = path.join(process.cwd(), "uploads");
     const now = Date.now();
     let entries: any[] = [];
     try {
@@ -64,22 +64,22 @@ async function cleanupOnce() {
 
     const deletions: string[] = [];
     const failedDeletions: string[] = [];
-    
+
     for (const entry of entries) {
       if (!entry.isFile()) continue;
       const name = entry.name;
       if (IGNORE.has(name)) continue;
       const fullPath = path.join(uploadsDir, name);
-      
+
       try {
         const stat = await fs.stat(fullPath);
         const age = now - stat.mtimeMs;
-        
+
         // Check if this is a tracked failed upload
         const tracked = uploadRegistry.get(name);
         const isFailed = tracked && !tracked.success;
         const maxAge = isFailed ? FAILED_UPLOAD_MAX_AGE_MS : MAX_AGE_MS;
-        
+
         if (age > maxAge) {
           await fs.unlink(fullPath);
           if (isFailed) {
@@ -94,23 +94,33 @@ async function cleanupOnce() {
         // ignore individual file errors
       }
     }
-    
+
     if (failedDeletions.length) {
-      console.log(`[autoCleanup] Removed ${failedDeletions.length} failed upload(s) (> 5m):`, failedDeletions.join(', '));
+      console.log(
+        `[autoCleanup] Removed ${failedDeletions.length} failed upload(s) (> 5m):`,
+        failedDeletions.join(", ")
+      );
     }
     if (deletions.length) {
-      console.log(`[autoCleanup] Removed ${deletions.length} expired file(s) (> ${Math.round(MAX_AGE_MS/60000)}m):`, deletions.join(', '));
+      console.log(
+        `[autoCleanup] Removed ${
+          deletions.length
+        } expired file(s) (> ${Math.round(MAX_AGE_MS / 60000)}m):`,
+        deletions.join(", ")
+      );
     }
-    
+
     // Clean up stale entries from registry (files that no longer exist)
-    const existingFiles = new Set(entries.filter(e => e.isFile()).map(e => e.name));
+    const existingFiles = new Set(
+      entries.filter((e) => e.isFile()).map((e) => e.name)
+    );
     for (const [filename] of uploadRegistry) {
       if (!existingFiles.has(filename)) {
         uploadRegistry.delete(filename);
       }
     }
   } catch (err) {
-    console.warn('[autoCleanup] cleanup error', err);
+    console.warn("[autoCleanup] cleanup error", err);
   }
 }
 
@@ -121,7 +131,11 @@ function start() {
   cleanupOnce();
   // periodic
   setInterval(cleanupOnce, INTERVAL_MS).unref?.();
-  console.log(`[autoCleanup] Started periodic uploads cleanup (successful: ${Math.round(MAX_AGE_MS/60000)}m, failed: 5m)`);
+  console.log(
+    `[autoCleanup] Started periodic uploads cleanup (successful: ${Math.round(
+      MAX_AGE_MS / 60000
+    )}m, failed: 5m)`
+  );
 }
 
 start();

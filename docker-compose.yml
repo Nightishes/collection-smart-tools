@@ -21,6 +21,24 @@ services:
     networks:
       - collection-tools
 
+  # Redis cache for improved performance
+  redis:
+    image: redis:7-alpine
+    container_name: collection-tools-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    command: redis-server --appendonly yes --maxmemory 512mb --maxmemory-policy allkeys-lru
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+    networks:
+      - collection-tools
+
   # Optional: Existing services can be added here
   # pdf2html:
   #   image: pdf2html:latest
@@ -32,4 +50,6 @@ networks:
 
 volumes:
   clamav-data:
+    driver: local
+  redis-data:
     driver: local

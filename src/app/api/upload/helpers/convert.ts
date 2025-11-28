@@ -3,6 +3,8 @@ import { promisify } from "util";
 import fs from "fs/promises";
 import path from "path";
 import pdfParse from "pdf-parse";
+import redisCache from "@/lib/redisCache";
+import { hashFile } from "@/lib/fileHash";
 
 const execFile = promisify(_execFile);
 
@@ -190,7 +192,12 @@ async function processHtmlImages(
 export async function convertPdfToHtml(
   inputPdfPath: string
 ): Promise<
-  | { success: true; htmlPath: string; imagesRemoved?: string[] }
+  | {
+      success: true;
+      htmlPath: string;
+      imagesRemoved?: string[];
+      cached?: boolean;
+    }
   | { success: false; error: string }
 > {
   try {
@@ -198,6 +205,23 @@ export async function convertPdfToHtml(
     const dir = path.dirname(inputAbs);
     const base = path.basename(inputAbs, path.extname(inputAbs));
     const outHtml = path.join(dir, `${base}.html`);
+
+    // Check Redis cache first
+    try {
+      const fileHash = await hashFile(inputAbs);
+      const cachedHtml = await redisCache.getConvertedHtml(fileHash);
+
+      if (cachedHtml) {
+        console.log(`[Cache HIT] Using cached conversion for ${base}`);
+        await fs.writeFile(outHtml, cachedHtml, "utf8");
+        return { success: true, htmlPath: outHtml, cached: true };
+      }
+
+      console.log(`[Cache MISS] Converting PDF for ${base}`);
+    } catch (cacheErr) {
+      console.warn("[Cache] Error checking cache:", cacheErr);
+      // Continue with conversion if cache check fails
+    }
 
     // Use Docker for pdf2htmlEX conversion with enhanced formatting options
     try {
@@ -267,7 +291,21 @@ export async function convertPdfToHtml(
         console.log("pdf2htmlEX successfully created HTML file");
 
         // Process images - remove local image references to avoid broken links
-        return await processHtmlImages(outHtml);
+        const result = await processHtmlImages(outHtml);
+
+        // Cache the converted HTML
+        if (result.success) {
+          try {
+            const fileHash = await hashFile(inputAbs);
+            const htmlContent = await fs.readFile(outHtml, "utf8");
+            await redisCache.setConvertedHtml(fileHash, htmlContent, 3600); // Cache for 1 hour
+            console.log(`[Cache] Stored conversion for ${base}`);
+          } catch (cacheErr) {
+            console.warn("[Cache] Failed to store in cache:", cacheErr);
+          }
+        }
+
+        return result;
       } catch {
         throw new Error("HTML file was not created by pdf2htmlEX");
       }
@@ -358,7 +396,21 @@ export async function convertPdfToHtml(
     await fs.writeFile(outHtml, html, "utf8");
 
     // Process images using the same function as pdf2htmlEX path
-    return await processHtmlImages(outHtml);
+    const result = await processHtmlImages(outHtml);
+
+    // Cache the fallback conversion
+    if (result.success) {
+      try {
+        const fileHash = await hashFile(inputAbs);
+        const htmlContent = await fs.readFile(outHtml, "utf8");
+        await redisCache.setConvertedHtml(fileHash, htmlContent, 3600); // Cache for 1 hour
+        console.log(`[Cache] Stored fallback conversion for ${base}`);
+      } catch (cacheErr) {
+        console.warn("[Cache] Failed to store fallback in cache:", cacheErr);
+      }
+    }
+
+    return result;
   } catch (err) {
     return {
       success: false,
