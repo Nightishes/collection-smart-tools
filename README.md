@@ -11,6 +11,8 @@ npm run docker:test
 npm run dev
 ```
 
+To run everything : npm run docker:up ; npm run dev
+
 Open http://localhost:3000
 
 ## 📚 Documentation

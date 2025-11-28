@@ -211,6 +211,9 @@ export async function convertPdfToHtml(
         [
           "run",
           "--rm", // Remove container after conversion
+          "--memory=4g", // Allocate 4GB memory for large PDFs
+          "--memory-swap=6g", // Allow 6GB total (memory + swap)
+          "--cpus=2", // Allocate 2 CPU cores
           "-v",
           `${dir}:/pdf`, // Mount the directory containing the PDF
           "-w",
@@ -249,7 +252,8 @@ export async function convertPdfToHtml(
           path.basename(outHtml), // Output filename with .html extension
         ],
         {
-          timeout: 120000, // 120 second timeout for large PDFs
+          timeout: 600000, // 10 minute timeout for large PDFs (up to 500MB)
+          maxBuffer: 50 * 1024 * 1024, // 50MB buffer for stdout/stderr
         }
       );
 

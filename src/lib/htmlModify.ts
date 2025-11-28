@@ -76,7 +76,12 @@ function extractStyleInfo(html: string): StyleInfo {
     while ((colorMatch = fontColorRegex.exec(styleContent)) !== null) {
       const name = `fc${colorMatch[1]}`;
       if (!fontColorsMap.has(name)) {
-        const color = normalizeColor(colorMatch[2]) || "#000000";
+        const rawColor = colorMatch[2];
+        // Convert transparent to black so text is visible by default
+        const color =
+          rawColor === "transparent"
+            ? "#000000"
+            : normalizeColor(rawColor) || "#000000";
         fontColorsMap.set(name, color);
       }
     }
@@ -188,22 +193,47 @@ export function modifyHtml(
   }
 
   // Inject any override rules that couldn't be modified in place
-  const hasStyleChanges =
-    fcRulesToInject.length > 0 || fsRulesToInject.length > 0;
-  const hasBgColorChange = bgColor !== "#ffffff";
+  const styleRules: string[] = [];
 
-  if (hasStyleChanges || hasBgColorChange) {
-    const styleRules: string[] = [];
-    if (hasBgColorChange) {
-      styleRules.push(`body,#page-container{background:${bgColor}!important}`);
-    }
-    if (fcRulesToInject.length > 0) {
-      styleRules.push(...fcRulesToInject);
-    }
-    if (fsRulesToInject.length > 0) {
-      styleRules.push(...fsRulesToInject);
-    }
+  // Always inject background color so it can be dynamically changed by user
+  // Target all common pdf2htmlEX containers to ensure background changes everywhere
+  // Note: We only change background-color, NOT background-image, because pdf2htmlEX
+  // often renders text as background images which must be preserved
+  styleRules.push(
+    `body,#page-container,.pf{background-color:${bgColor}!important}`
+  );
 
+  // AUTO-FIX: Ensure text is always visible by setting default black color on text elements
+  // Then override transparent/white font color classes specifically
+  styleRules.push(`.t{color:#000000!important}`); // .t is the text class in pdf2htmlEX
+
+  // Search for all .fcX{color:transparent|white|#fff|#ffffff} patterns directly in the HTML
+  const problematicColorRegex =
+    /\.fc(\d+)\s*\{[^}]*color\s*:\s*(transparent|white|#fff(?:fff)?)\s*[;}]/gi;
+  let colorMatch;
+  const problematicClasses = new Set<string>();
+
+  while ((colorMatch = problematicColorRegex.exec(html)) !== null) {
+    const className = `fc${colorMatch[1]}`;
+    problematicClasses.add(className);
+  }
+
+  // Inject black color override for all transparent/white font color classes
+  problematicClasses.forEach((className) => {
+    if (!opts.fcOverrides?.[className]) {
+      // Only inject if not already overridden by user
+      fcRulesToInject.push(`.${className}{color:#000000!important}`);
+    }
+  });
+
+  if (fcRulesToInject.length > 0) {
+    styleRules.push(...fcRulesToInject);
+  }
+  if (fsRulesToInject.length > 0) {
+    styleRules.push(...fsRulesToInject);
+  }
+
+  if (styleRules.length > 0) {
     const styleTag = `<style>${styleRules.join("")}</style>`;
 
     if (/<\/head>/i.test(modified)) {
@@ -228,4 +258,104 @@ export function modifyHtml(
   };
 
   return { modifiedHtml: modified, imagesRemoved, styleInfo };
+}
+
+/**
+ * Delete an element from HTML by selector path
+ * @param html - Original HTML content
+ * @param selectorPath - Array of indices representing path to element (e.g., [0, 2, 1])
+ * @returns Modified HTML with element removed
+ */
+export function deleteElement(html: string, selectorPath: number[]): string {
+  if (!selectorPath || selectorPath.length === 0) {
+    console.log("deleteElement: Empty selector path");
+    return html;
+  }
+
+  console.log(
+    "deleteElement: Attempting to delete element at path:",
+    selectorPath
+  );
+
+  // Create a temporary container to work with the HTML
+  const container = document.createElement("div");
+  container.innerHTML = html;
+
+  // Navigate to target element using path from body
+  // First, find the body element in the parsed HTML
+  const bodyMatch = html.match(/<body[^>]*>([\s\S]*)<\/body>/i);
+  if (!bodyMatch) {
+    console.log("deleteElement: Could not find body tag");
+    return html;
+  }
+
+  // Parse just the body content
+  const bodyContent = bodyMatch[1];
+  const bodyContainer = document.createElement("div");
+  bodyContainer.innerHTML = bodyContent;
+
+  // Navigate to target element
+  let current: Element | null = bodyContainer;
+  for (let i = 0; i < selectorPath.length; i++) {
+    const index = selectorPath[i];
+    if (!current) {
+      console.log(`deleteElement: Current is null at step ${i}`);
+      return html;
+    }
+    const children: Element[] = Array.from(current.children);
+    console.log(
+      `deleteElement: Step ${i}, index ${index}, children count: ${children.length}`
+    );
+    if (index >= 0 && index < children.length) {
+      current = children[index];
+      console.log(
+        `deleteElement: Step ${i}, selected element:`,
+        current?.tagName,
+        current?.className
+      );
+    } else {
+      console.log(
+        `deleteElement: Invalid index ${index} at step ${i}, max: ${
+          children.length - 1
+        }`
+      );
+      return html;
+    }
+  }
+
+  // Hide the element instead of deleting (better for pdf2htmlEX content)
+  if (current && current instanceof HTMLElement) {
+    console.log(
+      "deleteElement: Hiding element:",
+      current.tagName,
+      current.className
+    );
+
+    // Add inline style to hide the element
+    const existingStyle = current.getAttribute("style") || "";
+    current.setAttribute(
+      "style",
+      existingStyle +
+        "; display: none !important; visibility: hidden !important;"
+    );
+
+    // Replace the body content in the original HTML
+    const newBodyContent = bodyContainer.innerHTML;
+    const newHtml = html.replace(/<body[^>]*>[\s\S]*<\/body>/i, (match) =>
+      match.replace(bodyMatch[1], newBodyContent)
+    );
+
+    console.log(
+      "deleteElement: Original HTML length:",
+      html.length,
+      "New:",
+      newHtml.length
+    );
+    return newHtml;
+  }
+
+  console.log(
+    "deleteElement: Could not remove element (no parent or current is null)"
+  );
+  return html;
 }

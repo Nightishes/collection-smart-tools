@@ -18,6 +18,8 @@ type EditorControlsProps = {
     value: string
   ) => void;
   onClassOverrideReset?: (kind: "fc" | "fs", name: string) => void;
+  selectedElement?: number[] | null;
+  onDeleteSelected?: () => void;
   onDownloadModified: () => void;
   onDownloadOriginal: () => void;
   onDownloadPdf: () => void;
@@ -36,6 +38,8 @@ export function EditorControls({
   fsOverrides = {},
   onClassOverrideChange,
   onClassOverrideReset,
+  selectedElement,
+  onDeleteSelected,
   onDownloadModified,
   onDownloadOriginal,
   onDownloadPdf,
@@ -74,6 +78,15 @@ export function EditorControls({
           />
           Remove embedded data: images (data:image/*)
         </label>
+        {selectedElement && onDeleteSelected && (
+          <button
+            onClick={onDeleteSelected}
+            className={styles.ctaButtonIframe}
+            style={{ backgroundColor: "#dc3545", marginLeft: "auto" }}
+          >
+            Delete Selected
+          </button>
+        )}
         <button
           onClick={onDownloadModified}
           style={{ marginLeft: "auto" }}

@@ -1,7 +1,7 @@
 "use client";
 
-import { useCallback, useState, useEffect } from "react";
-import { modifyHtml } from "../../../lib/htmlModify";
+import { useCallback, useState, useEffect, useRef } from "react";
+import { modifyHtml, deleteElement } from "../../../lib/htmlModify";
 import { ModifyOptions, StyleInfo } from "../types";
 
 export function useHtmlModifier() {
@@ -10,6 +10,7 @@ export function useHtmlModifier() {
   const [originalHtml, setOriginalHtml] = useState<string | null>(null);
   const [modifiedHtml, setModifiedHtml] = useState<string | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [selectedElement, setSelectedElement] = useState<number[] | null>(null);
   const [styleInfo, setStyleInfo] = useState<StyleInfo>({
     fontColors: [],
     fontSizes: [],
@@ -22,19 +23,27 @@ export function useHtmlModifier() {
     removeDataImages: false,
   });
 
+  // Use ref to track current preview URL for cleanup
+  const previewUrlRef = useRef<string | null>(null);
+
   // Create a preview blob URL from modified HTML for the iframe
-  const createPreview = useCallback(
-    (html: string) => {
-      // Revoke previous blob URL to avoid memory leaks
-      if (previewUrl && previewUrl.startsWith("blob:")) {
-        URL.revokeObjectURL(previewUrl);
-      }
-      const blob = new Blob([html], { type: "text/html" });
-      const url = URL.createObjectURL(blob);
-      setPreviewUrl(url);
-    },
-    [previewUrl]
-  );
+  const createPreview = useCallback((html: string) => {
+    console.log(
+      "createPreview: Creating new preview, HTML length:",
+      html.length
+    );
+    // Revoke previous blob URL to avoid memory leaks
+    if (previewUrlRef.current && previewUrlRef.current.startsWith("blob:")) {
+      console.log("createPreview: Revoking old URL:", previewUrlRef.current);
+      URL.revokeObjectURL(previewUrlRef.current);
+    }
+    const blob = new Blob([html], { type: "text/html" });
+    const url = URL.createObjectURL(blob);
+    console.log("createPreview: New URL created:", url);
+    previewUrlRef.current = url;
+    setPreviewUrl(url);
+    console.log("createPreview: Preview URL state updated");
+  }, []);
 
   const fetchHtmlContent = useCallback(
     async (htmlName: string) => {
@@ -172,14 +181,53 @@ export function useHtmlModifier() {
     }
   };
 
+  const handleElementSelection = useCallback((path: number[]) => {
+    setSelectedElement(path);
+  }, []);
+
+  const deleteSelectedElement = useCallback(() => {
+    console.log(
+      "deleteSelectedElement called, selectedElement:",
+      selectedElement
+    );
+    console.log(
+      "deleteSelectedElement called, modifiedHtml length:",
+      modifiedHtml?.length
+    );
+
+    if (!selectedElement || !modifiedHtml) {
+      console.log("deleteSelectedElement: Aborted - missing data");
+      return;
+    }
+
+    console.log(
+      "deleteSelectedElement: Calling deleteElement with path:",
+      selectedElement
+    );
+    const newHtml = deleteElement(modifiedHtml, selectedElement);
+    console.log(
+      "deleteSelectedElement: newHtml length:",
+      newHtml.length,
+      "vs old:",
+      modifiedHtml.length
+    );
+
+    setModifiedHtml(newHtml);
+    setHtmlContent(newHtml);
+    setOriginalHtml(newHtml); // Update original to reflect deletion
+    createPreview(newHtml);
+    setSelectedElement(null);
+    console.log("deleteSelectedElement: Complete, preview should update");
+  }, [selectedElement, modifiedHtml, createPreview]);
+
   // Cleanup blob URL on unmount
   useEffect(() => {
     return () => {
-      if (previewUrl && previewUrl.startsWith("blob:")) {
-        URL.revokeObjectURL(previewUrl);
+      if (previewUrlRef.current && previewUrlRef.current.startsWith("blob:")) {
+        URL.revokeObjectURL(previewUrlRef.current);
       }
     };
-  }, [previewUrl]);
+  }, []);
 
   return {
     lastHtmlName,
@@ -187,6 +235,7 @@ export function useHtmlModifier() {
     originalHtml,
     modifiedHtml,
     previewUrl,
+    selectedElement,
     styleInfo,
     options,
     fcOverrides,
@@ -195,6 +244,8 @@ export function useHtmlModifier() {
     updateClassOverride,
     resetClassOverride,
     fetchHtmlContent,
+    handleElementSelection,
+    deleteSelectedElement,
     reset,
   };
 }

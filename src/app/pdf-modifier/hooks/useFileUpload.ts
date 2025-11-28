@@ -1,12 +1,14 @@
 "use client";
 
 import { useCallback, useState } from "react";
+import { useAuth } from "../../context/AuthContext";
 import { UploadState } from "../types";
 
 export function useFileUpload(
   onUploadSuccess: (htmlName: string) => Promise<void>,
   onReset?: () => void
 ) {
+  const { token } = useAuth();
   const [files, setFiles] = useState<UploadState[]>([]);
 
   const onFilesSelected = useCallback(
@@ -27,13 +29,6 @@ export function useFileUpload(
         onReset();
       }
 
-      // add to UI list
-      const newItems = pdfs.map((f) => ({
-        name: f.name,
-        status: "idle" as const,
-      }));
-      setFiles(newItems);
-
       // upload each file
       pdfs.forEach(async (file) => {
         setFiles((s) => [...s, { name: file.name, status: "uploading" }]);
@@ -42,18 +37,21 @@ export function useFileUpload(
         form.append("file", file);
 
         try {
+          const headers: HeadersInit = {};
+          if (token) {
+            headers["Authorization"] = `Bearer ${token}`;
+          }
+
           const res = await fetch("/api/upload", {
             method: "POST",
+            headers,
             body: form,
           });
           const json = await res.json();
           if (res.ok && json.success) {
+            // Remove file from list on success
             setFiles((s) =>
-              s.map((x) =>
-                x.name === file.name && x.status === "uploading"
-                  ? { ...x, status: "done" }
-                  : x
-              )
+              s.filter((x) => x.name !== file.name || x.status !== "uploading")
             );
             if (json.html) {
               // fetch the html

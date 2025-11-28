@@ -1,7 +1,7 @@
 "use client";
 
-import { UploadState } from '../types';
-import styles from '../page.module.css';
+import { UploadState } from "../types";
+import styles from "../page.module.css";
 
 type UploadAreaProps = {
   onFilesSelected: (files: FileList | null) => void;
@@ -33,7 +33,7 @@ export function UploadArea({ onFilesSelected, inputRef }: UploadAreaProps) {
           ref={inputRef}
           type="file"
           accept="application/pdf"
-          style={{ display: 'none' }}
+          style={{ display: "none" }}
           onChange={(e) => onFilesSelected(e.target.files)}
         />
         <p>Drag & drop a PDF here, or click to select a file</p>
@@ -52,11 +52,16 @@ export function FileList({ files }: FileListProps) {
       {files.map((f, i) => (
         <div key={`${f.name}-${i}`} className={styles.fileItem}>
           <div className={styles.fileName}>{f.name}</div>
-          <div>
-            {f.status === 'uploading' && <span>Uploading</span>}
-            {f.status === 'done' && <span>Uploaded</span>}
-            {f.status === 'error' && <span style={{ color: 'crimson' }}>{f.message || 'Error'}</span>}
-            {f.status === 'idle' && <span>Queued</span>}
+          <div className={styles.fileStatus}>
+            {f.status === "uploading" && (
+              <div className={styles.loadingContainer}>
+                <div className={styles.spinner}></div>
+                <span> Processing large PDF...</span>
+              </div>
+            )}
+            {f.status === "error" && (
+              <span style={{ color: "crimson" }}>{f.message || "Error"}</span>
+            )}
           </div>
         </div>
       ))}

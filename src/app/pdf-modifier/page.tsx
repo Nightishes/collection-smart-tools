@@ -1,6 +1,6 @@
 ﻿"use client";
 
-import { useRef } from "react";
+import { useRef, useEffect } from "react";
 import { useFileUpload } from "./hooks/useFileUpload";
 import { useHtmlModifier } from "./hooks/useHtmlModifier";
 import { UploadArea, FileList } from "./components/UploadComponents";
@@ -16,10 +16,13 @@ export default function PageModifyHtml() {
     htmlContent,
     modifiedHtml,
     previewUrl,
+    selectedElement,
     styleInfo,
     options,
     updateOption,
     fetchHtmlContent,
+    handleElementSelection,
+    deleteSelectedElement,
     reset,
     fcOverrides,
     fsOverrides,
@@ -32,8 +35,17 @@ export default function PageModifyHtml() {
     reset
   );
 
+  // Listen for element selection messages from iframe
+  useRef<(() => void) | null>(null);
+
+  const iframeRef = useRef<HTMLIFrameElement | null>(null);
+
   const downloadModified = async () => {
     if (!modifiedHtml) return;
+    console.log(
+      "downloadModified: HTML length being downloaded:",
+      modifiedHtml.length
+    );
     const blob = new Blob([modifiedHtml], { type: "text/html" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -221,6 +233,153 @@ export default function PageModifyHtml() {
     }
   };
 
+  // Setup postMessage listener for iframe element selection
+  useEffect(() => {
+    const handleMessage = (event: MessageEvent) => {
+      console.log("Message received from iframe:", event.data);
+      if (event.data && event.data.type === "ELEMENT_SELECTED") {
+        console.log("Element selected, path:", event.data.path);
+        handleElementSelection(event.data.path);
+      } else if (event.data && event.data.type === "DELETE_ELEMENT") {
+        console.log(
+          "Delete element requested via keyboard, path:",
+          event.data.path
+        );
+        // Set the element as selected first, then delete it
+        handleElementSelection(event.data.path);
+        // Use setTimeout to ensure state updates before deletion
+        setTimeout(() => {
+          deleteSelectedElement();
+        }, 0);
+      }
+    };
+
+    window.addEventListener("message", handleMessage);
+    return () => window.removeEventListener("message", handleMessage);
+  }, [handleElementSelection, deleteSelectedElement]);
+
+  // Inject selection script into iframe when it loads
+  useEffect(() => {
+    if (iframeRef.current && previewUrl) {
+      const iframe = iframeRef.current;
+      const injectScript = () => {
+        try {
+          const iframeDoc =
+            iframe.contentDocument || iframe.contentWindow?.document;
+          if (!iframeDoc || !iframeDoc.body) return;
+
+          // Remove any existing script
+          const existingScript = iframeDoc.getElementById(
+            "element-selector-script"
+          );
+          if (existingScript) existingScript.remove();
+
+          const script = iframeDoc.createElement("script");
+          script.id = "element-selector-script";
+          script.textContent = `
+            (function() {
+              let selectedElement = null;
+
+              function getElementPath(element) {
+                const path = [];
+                let current = element;
+                while (current && current !== document.body) {
+                  const parent = current.parentElement;
+                  if (parent) {
+                    const children = Array.from(parent.children);
+                    path.unshift(children.indexOf(current));
+                    current = parent;
+                  } else {
+                    break;
+                  }
+                }
+                return path;
+              }
+
+              function highlightElement(element) {
+                // Remove previous highlight
+                if (selectedElement) {
+                  selectedElement.style.outline = "";
+                  selectedElement.style.backgroundColor = "";
+                }
+                // Add new highlight
+                if (element && element !== document.body) {
+                  element.style.outline = "3px solid #ff0000";
+                  element.style.backgroundColor = "rgba(255, 0, 0, 0.15)";
+                  selectedElement = element;
+                  
+                  // Show element info
+                  console.log("Selected:", element.tagName, 
+                    "Classes:", element.className,
+                    "ID:", element.id,
+                    "Children:", element.children.length);
+                }
+              }
+
+              function selectParent() {
+                if (selectedElement && selectedElement.parentElement && selectedElement.parentElement !== document.body) {
+                  const parent = selectedElement.parentElement;
+                  highlightElement(parent);
+                  const path = getElementPath(parent);
+                  console.log("Parent selected, new path:", path);
+                  window.parent.postMessage({ type: "ELEMENT_SELECTED", path }, "*");
+                }
+              }
+
+              // Keyboard shortcuts
+              document.addEventListener("keydown", function(e) {
+                if (e.key === "p" || e.key === "P") {
+                  e.preventDefault();
+                  selectParent();
+                } else if (e.key === "Backspace" || e.key === "Delete") {
+                  e.preventDefault();
+                  if (selectedElement) {
+                    const path = getElementPath(selectedElement);
+                    console.log("Deleting element via keyboard shortcut, path:", path);
+                    window.parent.postMessage({ type: "DELETE_ELEMENT", path }, "*");
+                  }
+                } else if (e.key === "Escape") {
+                  if (selectedElement) {
+                    selectedElement.style.outline = "";
+                    selectedElement.style.backgroundColor = "";
+                    selectedElement = null;
+                    window.parent.postMessage({ type: "ELEMENT_SELECTED", path: null }, "*");
+                  }
+                }
+              });
+
+              document.addEventListener("click", function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                const target = e.target;
+                console.log("Element clicked:", target.tagName, target.className);
+                if (target && target !== document.body) {
+                  highlightElement(target);
+                  const path = getElementPath(target);
+                  console.log("Element path:", path);
+                  console.log("Sending message to parent with path:", path);
+                  console.log("💡 Press 'P' to select parent element, 'ESC' to deselect");
+                  window.parent.postMessage({ type: "ELEMENT_SELECTED", path }, "*");
+                }
+              }, true);
+            })();
+          `;
+          iframeDoc.body.appendChild(script);
+        } catch (err) {
+          console.error("Failed to inject selection script:", err);
+        }
+      };
+
+      // Try to inject immediately if already loaded
+      if (iframe.contentDocument?.readyState === "complete") {
+        injectScript();
+      }
+
+      iframe.addEventListener("load", injectScript);
+      return () => iframe.removeEventListener("load", injectScript);
+    }
+  }, [previewUrl]);
+
   return (
     <div className={styles.page}>
       <main className={styles.main}>
@@ -247,6 +406,8 @@ export default function PageModifyHtml() {
               onSave={saveModified}
               onClear={clearUploads}
               isAdmin={isAdmin}
+              selectedElement={selectedElement}
+              onDeleteSelected={deleteSelectedElement}
             />
 
             <div
@@ -259,6 +420,8 @@ export default function PageModifyHtml() {
             >
               {previewUrl ? (
                 <iframe
+                  key={previewUrl}
+                  ref={iframeRef}
                   title="preview"
                   src={previewUrl}
                   style={{
@@ -267,6 +430,9 @@ export default function PageModifyHtml() {
                     border: 0,
                     backgroundColor: "white",
                   }}
+                  onLoad={() =>
+                    console.log("Iframe loaded with URL:", previewUrl)
+                  }
                   onError={(e) => console.error("Iframe load error:", e)}
                 />
               ) : (

@@ -2,6 +2,7 @@
 // Simple script to convert an HTML file to PDF using puppeteer.
 // Usage: node convert-html-to-pdf.js /data/input.html /data/output.pdf
 
+/* eslint-disable @typescript-eslint/no-require-imports */
 const fs = require("fs");
 const puppeteer = require("puppeteer");
 
