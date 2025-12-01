@@ -108,3 +108,271 @@
     transform: rotate(360deg);
   }
 }
+
+/* Editor Controls Styles */
+.controlsWrapper {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.controlLabel {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.controlsSection {
+  margin-bottom: 16px;
+}
+
+.controlsRow {
+  display: flex;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  width: 100%;
+  gap: 16px;
+}
+
+.sectionTitle {
+  color: var(--text-primary);
+}
+
+.fontColorsGrid {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.fontColorItem {
+  padding: 8px;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.colorInputLabel {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.colorSpacer {
+  width: 10px;
+}
+
+.resetButton {
+  margin-left: 6px;
+  padding: 4px;
+}
+
+.colorPreview {
+  width: 20px;
+  height: 20px;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+}
+
+.fontSizesContainer {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.select {
+  padding: 6px 12px;
+  border-radius: 4px;
+  border: 1px solid var(--border-color);
+  font-size: 14px;
+  background-color: var(--background);
+  color: var(--text-primary);
+  min-width: 120px;
+}
+
+.input {
+  padding: 6px 12px;
+  border-radius: 4px;
+  border: 1px solid var(--border-color);
+  font-size: 14px;
+  width: 100px;
+  background-color: var(--background);
+  color: var(--text-primary);
+}
+
+.inputSmall {
+  padding: 4px 8px;
+  border-radius: 4px;
+  border: 1px solid var(--border-color);
+  font-size: 14px;
+  width: 60px;
+  text-align: center;
+  background-color: var(--background);
+  color: var(--text-primary);
+}
+
+.textSecondary {
+  color: var(--text-secondary);
+}
+
+.textSecondarySmall {
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+.button {
+  padding: 6px 12px;
+  border-radius: 4px;
+  border: 1px solid var(--border-color);
+  font-size: 14px;
+  background-color: var(--background);
+  color: var(--text-primary);
+  cursor: pointer;
+}
+
+.movementContainer {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.directionalGrid {
+  display: grid;
+  grid-template-columns: repeat(3, 40px);
+  grid-template-rows: repeat(2, 40px);
+  gap: 4px;
+}
+
+.directionalButton {
+  padding: 0;
+  font-size: 20px;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  background-color: var(--background);
+  color: var(--text-primary);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.moveDistanceContainer {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  align-items: center;
+  justify-content: center;
+  height: 84px;
+}
+
+.deleteButton {
+  padding: 8px 12px;
+  font-size: 20px;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  background-color: var(--background);
+  color: #dc3545;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.downloadContainer {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.selectWithHeight {
+  padding: 6px 12px;
+  border-radius: 4px;
+  border: 1px solid var(--border-color);
+  font-size: 14px;
+  background-color: var(--background);
+  color: var(--text-primary);
+  min-width: 120px;
+  height: 40px;
+}
+
+.downloadButton {
+  padding: 6px 12px;
+  border-radius: 4px;
+  border: 1px solid var(--border-color);
+  font-size: 18px;
+  background-color: var(--background);
+  color: var(--text-primary);
+  cursor: pointer;
+  height: 40px;
+}
+
+.downloadButtonDisabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.clearButton {
+  padding: 6px 12px;
+  border-radius: 4px;
+  border: 1px solid rgba(255, 0, 0, 0.35);
+  font-size: 14px;
+  background-color: var(--background);
+  color: var(--text-primary);
+  cursor: pointer;
+  height: 40px;
+}
+
+.textInsertionSection {
+  display: flex;
+  gap: 12px;
+  flex-direction: column;
+  padding: 16px;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  background-color: var(--foreground);
+  margin-bottom: 24px;
+}
+
+.textInsertionLabel {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  font-size: 14px;
+  color: #212529;
+}
+
+.textarea {
+  width: 100%;
+  min-height: 60px;
+  padding: 12px;
+  border-radius: 6px;
+  border: 1px solid var(--border-color);
+  resize: vertical;
+  font-family: inherit;
+  font-size: 14px;
+  background-color: var(--background);
+  color: var(--text-primary);
+}
+
+.placeTextButton {
+  margin-top: 24px;
+  min-width: 120px;
+}
+
+.placeTextButtonEnabled {
+  background-color: #28a745;
+  cursor: pointer;
+  opacity: 1;
+}
+
+.placeTextButtonDisabled {
+  background-color: #6c757d;
+  cursor: not-allowed;
+  opacity: 0.6;
+}

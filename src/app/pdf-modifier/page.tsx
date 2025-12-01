@@ -15,8 +15,10 @@ export default function PageModifyHtml() {
     lastHtmlName,
     htmlContent,
     modifiedHtml,
-    previewUrl,
+    contentVersion,
     selectedElement,
+    moveDistance,
+    setMoveDistance,
     styleInfo,
     options,
     updateOption,
@@ -24,6 +26,7 @@ export default function PageModifyHtml() {
     handleElementSelection,
     deleteSelectedElement,
     insertElementAfterSelected,
+    moveElementDirection,
     reset,
     fcOverrides,
     fsOverrides,
@@ -41,109 +44,120 @@ export default function PageModifyHtml() {
 
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
 
-  const downloadModified = async () => {
+  const handleDownload = async (
+    format: "html" | "pdf" | "docx" | "odt" | "rtf" | "txt"
+  ) => {
     if (!modifiedHtml) return;
-    console.log(
-      "downloadModified: HTML length being downloaded:",
-      modifiedHtml.length
-    );
-    const blob = new Blob([modifiedHtml], { type: "text/html" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = lastHtmlName ? `modified-${lastHtmlName}` : "converted.html";
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    URL.revokeObjectURL(url);
-  };
 
-  const downloadOriginal = async () => {
-    if (!lastHtmlName) return;
     try {
-      const res = await fetch(
-        `/api/upload/html?file=${encodeURIComponent(lastHtmlName)}`
-      );
-      if (!res.ok) throw new Error("Failed to fetch HTML");
-      const text = await res.text();
-      const blob = new Blob([text], { type: "text/html" });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = lastHtmlName;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      URL.revokeObjectURL(url);
-    } catch (err) {
-      console.error("Download failed", err);
-    }
-  };
+      switch (format) {
+        case "html":
+          // Download modified HTML
+          const htmlBlob = new Blob([modifiedHtml], { type: "text/html" });
+          const htmlUrl = URL.createObjectURL(htmlBlob);
+          const htmlLink = document.createElement("a");
+          htmlLink.href = htmlUrl;
+          htmlLink.download = lastHtmlName
+            ? `modified-${lastHtmlName}`
+            : "converted.html";
+          document.body.appendChild(htmlLink);
+          htmlLink.click();
+          htmlLink.remove();
+          URL.revokeObjectURL(htmlUrl);
+          break;
 
-  const downloadAsPdf = async () => {
-    if (!modifiedHtml) return;
-    try {
-      const res = await fetch("/api/upload/html/convert-to-pdf", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ html: modifiedHtml }),
-      });
+        case "pdf":
+          // Convert HTML to PDF
+          const pdfRes = await fetch("/api/upload/html/convert-to-pdf", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ html: modifiedHtml }),
+          });
 
-      if (!res.ok) {
-        const errText = await res.text();
-        throw new Error("Conversion failed: " + errText);
+          if (!pdfRes.ok) {
+            const errText = await pdfRes.text();
+            throw new Error("PDF conversion failed: " + errText);
+          }
+
+          const pdfBlob = await pdfRes.blob();
+          const pdfUrl = URL.createObjectURL(pdfBlob);
+          const pdfLink = document.createElement("a");
+          pdfLink.href = pdfUrl;
+          pdfLink.download = lastHtmlName
+            ? `${lastHtmlName.replace(/\.html$/i, "")}-converted.pdf`
+            : "converted.pdf";
+          document.body.appendChild(pdfLink);
+          pdfLink.click();
+          pdfLink.remove();
+          URL.revokeObjectURL(pdfUrl);
+          break;
+
+        case "docx":
+          // Convert HTML to DOCX
+          const docxRes = await fetch("/api/convert/html-to-docx", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              html: modifiedHtml,
+              filename: lastHtmlName
+                ? lastHtmlName.replace(/\.html$/i, "-converted")
+                : "converted",
+            }),
+          });
+          if (!docxRes.ok) {
+            const errText = await docxRes.text();
+            throw new Error("DOCX conversion failed: " + errText);
+          }
+          const docxBlob = await docxRes.blob();
+          const docxUrl = URL.createObjectURL(docxBlob);
+          const docxLink = document.createElement("a");
+          docxLink.href = docxUrl;
+          docxLink.download = lastHtmlName
+            ? `${lastHtmlName.replace(/\.html$/i, "")}-converted.docx`
+            : "converted.docx";
+          document.body.appendChild(docxLink);
+          docxLink.click();
+          docxLink.remove();
+          URL.revokeObjectURL(docxUrl);
+          break;
+
+        case "odt":
+          alert(
+            "ODT format is not yet implemented. Please use HTML or DOCX format."
+          );
+          break;
+
+        case "rtf":
+          alert(
+            "RTF format is not yet implemented. Please use HTML or DOCX format."
+          );
+          break;
+
+        case "txt":
+          // Extract plain text from HTML
+          const parser = new DOMParser();
+          const doc = parser.parseFromString(modifiedHtml, "text/html");
+          const plainText = doc.body.textContent || "";
+          const txtBlob = new Blob([plainText], { type: "text/plain" });
+          const txtUrl = URL.createObjectURL(txtBlob);
+          const txtLink = document.createElement("a");
+          txtLink.href = txtUrl;
+          txtLink.download = lastHtmlName
+            ? `${lastHtmlName.replace(/\.html$/i, "")}-converted.txt`
+            : "converted.txt";
+          document.body.appendChild(txtLink);
+          txtLink.click();
+          txtLink.remove();
+          URL.revokeObjectURL(txtUrl);
+          break;
+
+        default:
+          alert(`Unsupported format: ${format}`);
       }
-
-      const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = lastHtmlName
-        ? `${lastHtmlName.replace(/\.html$/i, "")}-converted.pdf`
-        : "converted.pdf";
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      URL.revokeObjectURL(url);
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : String(err);
-      console.error("PDF conversion/download failed", err);
-      alert("PDF conversion failed: " + errorMessage);
-    }
-  };
-
-  const downloadAsDocx = async () => {
-    if (!modifiedHtml) return;
-    try {
-      const res = await fetch("/api/convert/html-to-docx", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          html: modifiedHtml,
-          filename: lastHtmlName
-            ? lastHtmlName.replace(/\.html$/i, "-converted")
-            : "converted",
-        }),
-      });
-      if (!res.ok) {
-        const errText = await res.text();
-        throw new Error("DOCX conversion failed: " + errText);
-      }
-      const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = lastHtmlName
-        ? `${lastHtmlName.replace(/\.html$/i, "")}-converted.docx`
-        : "converted.docx";
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      URL.revokeObjectURL(url);
-    } catch (err: unknown) {
-      const errorMessage = err instanceof Error ? err.message : String(err);
-      console.error("DOCX conversion/download failed", err);
-      alert("DOCX conversion failed: " + errorMessage);
+      console.error(`${format.toUpperCase()} conversion/download failed`, err);
+      alert(`${format.toUpperCase()} conversion failed: ` + errorMessage);
     }
   };
 
@@ -246,15 +260,42 @@ export default function PageModifyHtml() {
           "Insert element requested via keyboard, path:",
           event.data.path
         );
+
+        // Require an element to be selected
+        if (!event.data.path || event.data.path.length === 0) {
+          console.warn("⚠️ Insert blocked: No element selected");
+          alert(
+            "Please select an element first by clicking on it in the document."
+          );
+          return;
+        }
+
         // Prompt for content and insert
-        const content = prompt('Enter text content:', 'New paragraph');
+        const content = prompt("Enter text content:", "New paragraph");
         if (content !== null) {
           // Set the element path for insertion context
-          if (event.data.path) {
-            handleElementSelection(event.data.path);
-          }
-          setTimeout(() => insertElementAfterSelected('p', content), 0);
+          handleElementSelection(event.data.path);
+          setTimeout(() => insertElementAfterSelected("p", content), 0);
         }
+      } else if (event.data && event.data.type === "MOVE_UP") {
+        console.log("Move up requested via keyboard, path:", event.data.path);
+        handleElementSelection(event.data.path);
+        setTimeout(() => moveElementDirection("up"), 0);
+      } else if (event.data && event.data.type === "MOVE_DOWN") {
+        console.log("Move down requested via keyboard, path:", event.data.path);
+        handleElementSelection(event.data.path);
+        setTimeout(() => moveElementDirection("down"), 0);
+      } else if (event.data && event.data.type === "MOVE_LEFT") {
+        console.log("Move left requested via keyboard, path:", event.data.path);
+        handleElementSelection(event.data.path);
+        setTimeout(() => moveElementDirection("left"), 0);
+      } else if (event.data && event.data.type === "MOVE_RIGHT") {
+        console.log(
+          "Move right requested via keyboard, path:",
+          event.data.path
+        );
+        handleElementSelection(event.data.path);
+        setTimeout(() => moveElementDirection("right"), 0);
       } else if (event.data && event.data.type === "DELETE_ELEMENT") {
         console.log(
           "Delete element requested via keyboard, path:",
@@ -271,11 +312,16 @@ export default function PageModifyHtml() {
 
     window.addEventListener("message", handleMessage);
     return () => window.removeEventListener("message", handleMessage);
-  }, [handleElementSelection, deleteSelectedElement]);
+  }, [
+    handleElementSelection,
+    deleteSelectedElement,
+    moveElementDirection,
+    insertElementAfterSelected,
+  ]);
 
   // Inject selection script into iframe when it loads
   useEffect(() => {
-    if (iframeRef.current && previewUrl) {
+    if (iframeRef.current && htmlContent) {
       const iframe = iframeRef.current;
       const injectScript = () => {
         try {
@@ -337,7 +383,7 @@ export default function PageModifyHtml() {
                   highlightElement(parent);
                   const path = getElementPath(parent);
                   console.log("Parent selected, new path:", path);
-                  window.parent.postMessage({ type: "ELEMENT_SELECTED", path }, window.location.origin);
+                  window.parent.postMessage({ type: "ELEMENT_SELECTED", path }, "*");
                 }
               }
 
@@ -348,22 +394,47 @@ export default function PageModifyHtml() {
                   selectParent();
                 } else if (e.key === "i" || e.key === "I") {
                   e.preventDefault();
-                  const path = selectedElement ? getElementPath(selectedElement) : null;
-                  console.log("Insert element shortcut triggered, path:", path);
-                  window.parent.postMessage({ type: "INSERT_ELEMENT", path }, window.location.origin);
+                  if (selectedElement) {
+                    const path = getElementPath(selectedElement);
+                    console.log("Insert element shortcut triggered, path:", path);
+                    window.parent.postMessage({ type: "INSERT_ELEMENT", path }, "*");
+                  } else {
+                    console.log("⚠️ Insert ignored: No element selected. Click on an element first!");
+                    alert("Please select an element first by clicking on it.");
+                  }
+                } else if (e.key === "ArrowUp" && selectedElement) {
+                  e.preventDefault();
+                  const path = getElementPath(selectedElement);
+                  console.log("Move up shortcut triggered, path:", path);
+                  window.parent.postMessage({ type: "MOVE_UP", path }, "*");
+                } else if (e.key === "ArrowDown" && selectedElement) {
+                  e.preventDefault();
+                  const path = getElementPath(selectedElement);
+                  console.log("Move down shortcut triggered, path:", path);
+                  window.parent.postMessage({ type: "MOVE_DOWN", path }, "*");
+                } else if (e.key === "ArrowLeft" && selectedElement) {
+                  e.preventDefault();
+                  const path = getElementPath(selectedElement);
+                  console.log("Move left shortcut triggered, path:", path);
+                  window.parent.postMessage({ type: "MOVE_LEFT", path }, "*");
+                } else if (e.key === "ArrowRight" && selectedElement) {
+                  e.preventDefault();
+                  const path = getElementPath(selectedElement);
+                  console.log("Move right shortcut triggered, path:", path);
+                  window.parent.postMessage({ type: "MOVE_RIGHT", path }, "*");
                 } else if (e.key === "Backspace" || e.key === "Delete") {
                   e.preventDefault();
                   if (selectedElement) {
                     const path = getElementPath(selectedElement);
                     console.log("Deleting element via keyboard shortcut, path:", path);
-                    window.parent.postMessage({ type: "DELETE_ELEMENT", path }, window.location.origin);
+                    window.parent.postMessage({ type: "DELETE_ELEMENT", path }, "*");
                   }
                 } else if (e.key === "Escape") {
                   if (selectedElement) {
                     selectedElement.style.outline = "";
                     selectedElement.style.backgroundColor = "";
                     selectedElement = null;
-                    window.parent.postMessage({ type: "ELEMENT_SELECTED", path: null }, window.location.origin);
+                    window.parent.postMessage({ type: "ELEMENT_SELECTED", path: null }, "*");
                   }
                 }
               });
@@ -373,14 +444,38 @@ export default function PageModifyHtml() {
                 e.stopPropagation();
                 const target = e.target;
                 console.log("Element clicked:", target.tagName, target.className);
-                if (target && target !== document.body) {
-                  highlightElement(target);
-                  const path = getElementPath(target);
-                  console.log("Element path:", path);
-                  console.log("Sending message to parent with path:", path);
-                  console.log("💡 Shortcuts: 'I' = Insert <p>, 'P' = Parent, 'Delete' = Remove, 'ESC' = Deselect");
-                  window.parent.postMessage({ type: "ELEMENT_SELECTED", path }, window.location.origin);
+                
+                // Ignore clicks on body or container elements (those with id="page-container" or class "pf")
+                if (!target || target === document.body) {
+                  console.log("⚠️ Click ignored: body element");
+                  return;
                 }
+                
+                // In pdf2htmlEX documents, avoid selecting page containers
+                // Only select actual content elements (usually divs with class 't' or similar text elements)
+                const isContainer = target.id === "page-container" || 
+                                   target.classList.contains("pf") || 
+                                   target.classList.contains("pc") ||
+                                   (target.children.length > 10 && !target.classList.contains("t"));
+                
+                if (isContainer) {
+                  console.log("⚠️ Click ignored: container element. Click on actual text/content instead.");
+                  // Deselect instead of selecting container
+                  if (selectedElement) {
+                    selectedElement.style.outline = "";
+                    selectedElement.style.backgroundColor = "";
+                    selectedElement = null;
+                  }
+                  window.parent.postMessage({ type: "ELEMENT_SELECTED", path: null }, "*");
+                  return;
+                }
+                
+                highlightElement(target);
+                const path = getElementPath(target);
+                console.log("Element path:", path);
+                console.log("Sending message to parent with path:", path);
+                console.log("💡 Shortcuts: 'I' = Insert <p>, 'P' = Parent, '↑' = Move Up, '↓' = Move Down, 'Delete' = Remove, 'ESC' = Deselect");
+                window.parent.postMessage({ type: "ELEMENT_SELECTED", path }, "*");
               }, true);
             })();
           `;
@@ -398,7 +493,7 @@ export default function PageModifyHtml() {
       iframe.addEventListener("load", injectScript);
       return () => iframe.removeEventListener("load", injectScript);
     }
-  }, [previewUrl]);
+  }, [htmlContent]);
 
   return (
     <div className={styles.page}>
@@ -418,17 +513,19 @@ export default function PageModifyHtml() {
               fsOverrides={fsOverrides}
               onClassOverrideChange={updateClassOverride}
               onClassOverrideReset={resetClassOverride}
-              onDownloadModified={downloadModified}
-              onDownloadOriginal={downloadOriginal}
-              onDownloadPdf={downloadAsPdf}
-              onDownloadDocx={downloadAsDocx}
-              onDownloadPdfDocx={downloadOriginalPdfAsDocx}
+              onDownload={handleDownload}
               onSave={saveModified}
               onClear={clearUploads}
               isAdmin={isAdmin}
               selectedElement={selectedElement}
+              moveDistance={moveDistance}
+              setMoveDistance={setMoveDistance}
               onDeleteSelected={deleteSelectedElement}
               onInsertElement={insertElementAfterSelected}
+              onMoveUp={() => moveElementDirection("up")}
+              onMoveDown={() => moveElementDirection("down")}
+              onMoveLeft={() => moveElementDirection("left")}
+              onMoveRight={() => moveElementDirection("right")}
             />
 
             <div
@@ -439,12 +536,12 @@ export default function PageModifyHtml() {
                 backgroundColor: "#fafafa",
               }}
             >
-              {previewUrl ? (
+              {htmlContent ? (
                 <iframe
-                  key={previewUrl}
+                  key={contentVersion}
                   ref={iframeRef}
                   title="preview"
-                  src={previewUrl}
+                  srcDoc={htmlContent}
                   style={{
                     width: "100%",
                     height: "100%",
@@ -452,7 +549,11 @@ export default function PageModifyHtml() {
                     backgroundColor: "white",
                   }}
                   onLoad={() =>
-                    console.log("Iframe loaded with URL:", previewUrl)
+                    console.log(
+                      "Iframe loaded with HTML:",
+                      htmlContent.length,
+                      "bytes"
+                    )
                   }
                   onError={(e) => console.error("Iframe load error:", e)}
                 />

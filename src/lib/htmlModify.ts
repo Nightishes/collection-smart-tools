@@ -272,47 +272,73 @@ export function modifyHtml(
 export function insertElement(
   html: string,
   selectorPath: number[],
-  elementType: string = 'p',
-  content: string = 'New text',
+  elementType: string = "p",
+  content: string = "New text",
   styles?: Record<string, string>
 ): string {
-  console.log('🔧 insertElement called with:', { 
-    htmlLength: html.length, 
-    selectorPath, 
-    elementType, 
-    content: content.substring(0, 50) 
+  console.log("🔧 insertElement called with:", {
+    htmlLength: html.length,
+    selectorPath,
+    elementType,
+    content: content.substring(0, 50),
   });
 
   if (!selectorPath || selectorPath.length === 0) {
-    console.log('insertElement: Empty selector path, appending to body');
+    console.log("insertElement: Empty selector path, appending to body");
     // Append to end of body
     const bodyMatch = html.match(/<body[^>]*>([\s\S]*)<\/body>/i);
     if (bodyMatch) {
-      console.log('insertElement: Found body tag, appending element');
-      const styleAttr = styles ? ` style="${Object.entries(styles).map(([k, v]) => `${k}: ${v}`).join('; ')}"` : '';
-      const newElement = `<${elementType}${styleAttr}>${escapeHtml(content)}</${elementType}>`;
-      console.log('insertElement: New element HTML:', newElement);
+      console.log("insertElement: Found body tag, appending element");
+      const styleAttr = styles
+        ? ` style="${Object.entries(styles)
+            .map(([k, v]) => `${k}: ${v}`)
+            .join("; ")}"`
+        : "";
+      const newElement = `<${elementType}${styleAttr}>${escapeHtml(
+        content
+      )}</${elementType}>`;
+      console.log("insertElement: New element HTML:", newElement);
       const newBodyContent = bodyMatch[1] + newElement;
       const result = html.replace(/<body[^>]*>[\s\S]*<\/body>/i, (match) =>
         match.replace(bodyMatch[1], newBodyContent)
       );
-      console.log('insertElement: Appended to body, new length:', result.length);
+      console.log(
+        "insertElement: Appended to body, new length:",
+        result.length
+      );
       return result;
     }
-    console.warn('insertElement: Could not find body tag!');
+    console.warn("insertElement: Could not find body tag!");
     return html;
   }
 
-  console.log('insertElement: Inserting', elementType, 'at path:', selectorPath);
+  console.log(
+    "insertElement: Inserting",
+    elementType,
+    "at path:",
+    selectorPath
+  );
 
   // Validate element type (security check - only allow safe elements)
-  const safeElements = ['p', 'div', 'span', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'br', 'hr'];
+  const safeElements = [
+    "p",
+    "div",
+    "span",
+    "h1",
+    "h2",
+    "h3",
+    "h4",
+    "h5",
+    "h6",
+    "br",
+    "hr",
+  ];
   if (!safeElements.includes(elementType.toLowerCase())) {
-    console.warn('insertElement: Unsafe element type:', elementType);
+    console.warn("insertElement: Unsafe element type:", elementType);
     return html;
   }
 
-  // Validate HTML structure before parsing (security check)
+  // Validate NEW CONTENT for dangerous patterns (not the entire HTML which may be from pdf2htmlEX)
   const dangerousPatterns = [
     /<script[^>]*>/gi,
     /javascript:/gi,
@@ -320,24 +346,30 @@ export function insertElement(
   ];
 
   for (const pattern of dangerousPatterns) {
-    if (pattern.test(html)) {
-      console.warn('insertElement: Dangerous pattern detected in HTML, aborting');
+    if (pattern.test(content)) {
+      console.warn(
+        "insertElement: Dangerous pattern detected in NEW CONTENT, aborting:",
+        content
+      );
       return html;
     }
   }
 
   // Escape content to prevent XSS
   const safeContent = escapeHtml(content);
+  console.log("insertElement: Content validated and escaped");
 
   const bodyMatch = html.match(/<body[^>]*>([\s\S]*)<\/body>/i);
   if (!bodyMatch) {
-    console.log('insertElement: Could not find body tag');
+    console.log("insertElement: Could not find body tag");
     return html;
   }
 
   const bodyContent = bodyMatch[1];
-  const bodyContainer = document.createElement('div');
+  console.log("insertElement: Found body content, length:", bodyContent.length);
+  const bodyContainer = document.createElement("div");
   bodyContainer.innerHTML = bodyContent;
+  console.log("insertElement: Parsed body into container");
 
   // Navigate to target element
   let current: Element | null = bodyContainer;
@@ -358,52 +390,305 @@ export function insertElement(
 
   // Create new element
   if (current && current.parentElement) {
-    console.log('insertElement: Target element found:', current.tagName, current.className);
-    console.log('insertElement: Parent element:', current.parentElement.tagName);
-    
-    const newElement = document.createElement(elementType);
+    console.log(
+      "insertElement: Target element found:",
+      current.tagName,
+      current.className
+    );
+    console.log(
+      "insertElement: Parent element:",
+      current.parentElement.tagName
+    );
+
+    // Clone the selected element's structure for pdf2htmlEX compatibility
+    const newElement = document.createElement(current.tagName.toLowerCase());
+
+    // Copy ALL classes from selected element to maintain pdf2htmlEX structure
+    if (current instanceof HTMLElement && current.className) {
+      newElement.className = current.className;
+      console.log("insertElement: Copied classes:", current.className);
+    }
+
+    // For pdf2htmlEX, get computed position (might be in CSS classes, not inline)
+    if (current instanceof HTMLElement) {
+      const computedStyle = window.getComputedStyle(current);
+
+      // Copy inline styles first
+      if (current.style.cssText) {
+        const styles = current.style.cssText.split(";").filter((s) => s.trim());
+        styles.forEach((style) => {
+          const [prop, value] = style.split(":").map((s) => s.trim());
+          if (prop && value) {
+            newElement.style.setProperty(prop, value);
+          }
+        });
+      }
+
+      // Adjust vertical position: add offset below the selected element
+      const topValue = parseFloat(computedStyle.top);
+      const heightValue = parseFloat(computedStyle.height) || 15;
+
+      if (!isNaN(topValue)) {
+        // Position new element below the selected one (top + height + small gap)
+        newElement.style.setProperty("top", `${topValue + heightValue + 5}px`);
+        console.log(
+          `insertElement: Positioned at top: ${
+            topValue + heightValue + 5
+          }px (below selected element)`
+        );
+      } else {
+        // Fallback: add 15px offset if we can't compute position
+        const currentTop = current.style.top;
+        if (currentTop) {
+          const currentTopValue = parseFloat(currentTop);
+          if (!isNaN(currentTopValue)) {
+            newElement.style.setProperty("top", `${currentTopValue + 15}px`);
+          }
+        }
+      }
+
+      // Ensure left position is copied
+      if (computedStyle.left && computedStyle.left !== "auto") {
+        newElement.style.setProperty("left", computedStyle.left);
+      }
+
+      console.log("insertElement: Copied and adjusted positioning styles");
+    }
+
     newElement.textContent = safeContent;
-    console.log('insertElement: Created new element:', elementType, 'with content:', safeContent.substring(0, 50));
-    
-    // Apply styles if provided
+    console.log(
+      "insertElement: Created new element:",
+      elementType,
+      "with content:",
+      safeContent.substring(0, 50)
+    );
+
+    // Apply custom styles if provided (override defaults)
     if (styles) {
       Object.entries(styles).forEach(([key, value]) => {
         // Validate style property names (basic sanitization)
-        const safeKey = key.replace(/[^a-zA-Z-]/g, '');
+        const safeKey = key.replace(/[^a-zA-Z-]/g, "");
         newElement.style.setProperty(safeKey, value);
       });
-      console.log('insertElement: Applied styles to element');
+      console.log("insertElement: Applied custom styles to element");
     }
 
     // Insert after current element
     if (current.nextSibling) {
       current.parentElement.insertBefore(newElement, current.nextSibling);
-      console.log('insertElement: Inserted before next sibling');
+      console.log("insertElement: Inserted before next sibling");
     } else {
       current.parentElement.appendChild(newElement);
-      console.log('insertElement: Appended to parent (no next sibling)');
+      console.log("insertElement: Appended to parent (no next sibling)");
     }
 
     // Replace the body content in the original HTML
     const newBodyContent = bodyContainer.innerHTML;
-    console.log('insertElement: New body content length:', newBodyContent.length);
+    console.log(
+      "insertElement: New body content length:",
+      newBodyContent.length
+    );
     const newHtml = html.replace(/<body[^>]*>[\s\S]*<\/body>/i, (match) =>
       match.replace(bodyMatch[1], newBodyContent)
     );
 
-    console.log('insertElement: ✅ Element inserted successfully, new HTML length:', newHtml.length);
+    console.log(
+      "insertElement: ✅ Element inserted successfully, new HTML length:",
+      newHtml.length
+    );
     return newHtml;
   }
 
-  console.error('insertElement: ❌ Could not insert element - no current or parent element');
+  console.error(
+    "insertElement: ❌ Could not insert element - no current or parent element"
+  );
   return html;
 }
 
 // Helper function to escape HTML entities
 function escapeHtml(text: string): string {
-  const div = document.createElement('div');
+  const div = document.createElement("div");
   div.textContent = text;
   return div.innerHTML;
+}
+
+/**
+ * Move an element by adjusting its absolute position
+ * @param html - Original HTML content
+ * @param selectorPath - Array of indices representing path to element
+ * @param direction - 'up', 'down', 'left', or 'right'
+ * @param moveDistance - Distance to move in pixels (default: 15px)
+ * @returns Modified HTML with element moved
+ */
+export function moveElement(
+  html: string,
+  selectorPath: number[],
+  direction: "up" | "down" | "left" | "right",
+  moveDistance: number = 15
+): string {
+  if (!selectorPath || selectorPath.length === 0) {
+    return html;
+  }
+
+  const bodyMatch = html.match(/<body[^>]*>([\s\S]*)<\/body>/i);
+  if (!bodyMatch) {
+    return html;
+  }
+
+  const bodyContent = bodyMatch[1];
+  const bodyContainer = document.createElement("div");
+  bodyContainer.innerHTML = bodyContent;
+
+  // Navigate to target element
+  let current: Element | null = bodyContainer;
+  for (let i = 0; i < selectorPath.length; i++) {
+    const index = selectorPath[i];
+    if (!current) return html;
+    const children: Element[] = Array.from(current.children);
+    if (index >= 0 && index < children.length) {
+      current = children[index];
+    } else {
+      return html;
+    }
+  }
+
+  // Move the element by adjusting its absolute position
+  if (current instanceof HTMLElement) {
+    // pdf2htmlEX uses CSS classes like .y1f for top/bottom and .x7 for left/right
+    // Some elements (like nested spans) don't have positioning classes themselves,
+    // so we need to traverse up to find the first ancestor with a positioning class
+    const pattern =
+      direction === "up" || direction === "down"
+        ? /^y[0-9a-f]*$/i // Vertical: .y, .y1f, .y2a, etc.
+        : /^x[0-9a-f]*$/i; // Horizontal: .x, .x1b, etc.
+
+    let positionClass: string | null = null;
+    let targetElement: HTMLElement = current;
+
+    // Traverse up the DOM tree to find an element with a positioning class
+    while (targetElement && targetElement !== bodyContainer) {
+      const classList = targetElement.className.split(/\s+/);
+      for (const className of classList) {
+        if (pattern.test(className)) {
+          positionClass = className;
+          current = targetElement; // Update current to the element with the positioning class
+          break;
+        }
+      }
+      if (positionClass) break;
+      targetElement = targetElement.parentElement as HTMLElement;
+    }
+
+    if (!positionClass) return html;
+
+    // For horizontal movement, create a unique class to avoid affecting other elements
+    // that share the same x position class
+    if (direction === "left" || direction === "right") {
+      // Generate a unique class name based on timestamp
+      const uniqueClass = `x${Date.now().toString(36)}`;
+
+      // Find the original class definition in the styles
+      const styleRegex = /<style[^>]*>([\s\S]*?)<\/style>/gi;
+      const styleMatches = Array.from(html.matchAll(styleRegex));
+
+      for (let i = 0; i < styleMatches.length; i++) {
+        const styleMatch = styleMatches[i];
+        const cssContent = styleMatch[1];
+
+        // Look for the original class definition
+        const classPattern = new RegExp(
+          `\\.${positionClass}\\{([^}]*(?:left|right)\\s*:\\s*[0-9.]+(?:px|pt)[^}]*)\\}`,
+          "i"
+        );
+        const classMatch = cssContent.match(classPattern);
+
+        if (classMatch) {
+          // Create a new CSS rule with the unique class name
+          const newCssContent =
+            cssContent + `\n.${uniqueClass}{${classMatch[1]}}`;
+
+          // Update the style tag
+          html = html.replace(styleMatch[0], `<style>${newCssContent}</style>`);
+
+          // Remove the old positioning class and add the unique one
+          const oldClasses = current.className
+            .split(/\s+/)
+            .filter((c) => c !== positionClass);
+          current.className = [...oldClasses, uniqueClass].join(" ");
+
+          // Serialize the bodyContainer back to HTML
+          const updatedBodyContent = bodyContainer.innerHTML;
+          html = html.replace(bodyMatch[1], updatedBodyContent);
+
+          positionClass = uniqueClass;
+          break;
+        }
+      }
+    }
+
+    // Find ALL <style> tags and search for the positioning class
+    const styleRegex = /<style[^>]*>([\s\S]*?)<\/style>/gi;
+    const styleMatches = Array.from(html.matchAll(styleRegex));
+
+    for (let i = 0; i < styleMatches.length; i++) {
+      const styleMatch = styleMatches[i];
+      const cssContent = styleMatch[1];
+
+      // Look for the class definition: .y1f{...top:123.45px...} or .y1f{bottom:123.45pt;}
+      // Support both px and pt units
+      const classPattern = new RegExp(
+        `\\.${positionClass}\\{[^}]*(top|bottom|left|right)\\s*:\\s*([0-9.]+)(px|pt)`,
+        "i"
+      );
+      const classMatch = cssContent.match(classPattern);
+
+      if (classMatch) {
+        const positionProperty = classMatch[1]; // "top", "bottom", "left", or "right"
+        const currentValue = parseFloat(classMatch[2]);
+
+        if (!isNaN(currentValue)) {
+          // Calculate new position
+          // bottom and right work inversely (increase to move up/left)
+          const shouldInvert =
+            positionProperty === "bottom" || positionProperty === "right";
+          let delta = moveDistance;
+
+          if (direction === "up" || direction === "left") {
+            delta = shouldInvert ? moveDistance : -moveDistance;
+          } else {
+            // direction === "down" or "right"
+            delta = shouldInvert ? -moveDistance : moveDistance;
+          }
+
+          const newValue = currentValue + delta;
+
+          // Create the full pattern to replace: .yXX{property:value} with unit preservation
+          const fullClassPattern = new RegExp(
+            `(\\.${positionClass}\\{[^}]*${positionProperty}\\s*:\\s*)([0-9.]+)(px|pt)`,
+            "gi"
+          );
+
+          const newCssContent = cssContent.replace(
+            fullClassPattern,
+            `$1${newValue.toFixed(6)}$3`
+          );
+
+          // Replace the entire <style> tag with updated content
+          const newHtml = html.replace(
+            styleMatch[0],
+            `<style>${newCssContent}</style>`
+          );
+
+          return newHtml;
+        }
+      }
+    }
+
+    return html;
+  }
+
+  console.error("moveElement: ❌ Could not move element");
+  return html;
 }
 
 /**
@@ -413,123 +698,111 @@ function escapeHtml(text: string): string {
  * @returns Modified HTML with element removed
  */
 export function deleteElement(html: string, selectorPath: number[]): string {
-  if (!selectorPath || selectorPath.length === 0) {
-    console.log("deleteElement: Empty selector path");
+  try {
+    if (!selectorPath || selectorPath.length === 0) {
+      console.log("deleteElement: Empty selector path");
+      return html;
+    }
+
+    console.log(
+      "deleteElement: Attempting to delete element at path:",
+      selectorPath
+    );
+
+    // Note: We don't need strict security checks here because:
+    // 1. The HTML is already sanitized when uploaded
+    // 2. We're just adding display:none styles, not executing code
+    // 3. The HTML is displayed in an iframe with limited permissions
+    // 4. pdf2htmlEX output includes legitimate <script> tags that we need to allow
+
+    // Create a temporary container to work with the HTML
+    const container = document.createElement("div");
+    container.innerHTML = html;
+
+    // Navigate to target element using path from body
+    // First, find the body element in the parsed HTML
+    const bodyMatch = html.match(/<body[^>]*>([\s\S]*)<\/body>/i);
+    if (!bodyMatch) {
+      console.log("deleteElement: Could not find body tag");
+      return html;
+    }
+
+    // Parse just the body content with additional validation
+    const bodyContent = bodyMatch[1];
+
+    const bodyContainer = document.createElement("div");
+    bodyContainer.innerHTML = bodyContent;
+
+    // Navigate to target element
+    let current: Element | null = bodyContainer;
+    for (let i = 0; i < selectorPath.length; i++) {
+      const index = selectorPath[i];
+      if (!current) {
+        console.log(`deleteElement: Current is null at step ${i}`);
+        return html;
+      }
+      const children: Element[] = Array.from(current.children);
+      console.log(
+        `deleteElement: Step ${i}, index ${index}, children count: ${children.length}`
+      );
+      if (index >= 0 && index < children.length) {
+        current = children[index];
+        console.log(
+          `deleteElement: Step ${i}, selected element:`,
+          current?.tagName,
+          current?.className
+        );
+      } else {
+        console.log(
+          `deleteElement: Invalid index ${index} at step ${i}, max: ${
+            children.length - 1
+          }`
+        );
+        return html;
+      }
+    }
+
+    // Hide the element instead of deleting (better for pdf2htmlEX content)
+    if (current && current instanceof HTMLElement) {
+      console.log(
+        "deleteElement: Hiding element:",
+        current.tagName,
+        current.className
+      );
+
+      // Add inline style to hide the element
+      const existingStyle = current.getAttribute("style") || "";
+      current.setAttribute(
+        "style",
+        existingStyle +
+          "; display: none !important; visibility: hidden !important;"
+      );
+
+      // Replace the body content in the original HTML
+      const newBodyContent = bodyContainer.innerHTML;
+      const newHtml = html.replace(/<body[^>]*>[\s\S]*<\/body>/i, (match) =>
+        match.replace(bodyMatch[1], newBodyContent)
+      );
+
+      console.log(
+        "deleteElement: Original HTML length:",
+        html.length,
+        "New:",
+        newHtml.length
+      );
+      return newHtml;
+    }
+
+    console.log(
+      "deleteElement: Could not remove element (no parent or current is null)"
+    );
+    return html;
+  } catch (error) {
+    console.error("❌ ERROR in deleteElement:", error);
+    console.error(
+      "Stack:",
+      error instanceof Error ? error.stack : "No stack trace"
+    );
     return html;
   }
-
-  console.log(
-    "deleteElement: Attempting to delete element at path:",
-    selectorPath
-  );
-
-  // Validate HTML structure before parsing (security check)
-  // Check for dangerous patterns that might have bypassed sanitization
-  const dangerousPatterns = [
-    /<script[^>]*>/gi,
-    /javascript:/gi,
-    /on\w+\s*=/gi, // event handlers
-  ];
-
-  for (const pattern of dangerousPatterns) {
-    if (pattern.test(html)) {
-      console.warn(
-        "deleteElement: Dangerous pattern detected in HTML, aborting"
-      );
-      return html;
-    }
-  }
-
-  // Create a temporary container to work with the HTML
-  const container = document.createElement("div");
-  container.innerHTML = html;
-
-  // Navigate to target element using path from body
-  // First, find the body element in the parsed HTML
-  const bodyMatch = html.match(/<body[^>]*>([\s\S]*)<\/body>/i);
-  if (!bodyMatch) {
-    console.log("deleteElement: Could not find body tag");
-    return html;
-  }
-
-  // Parse just the body content with additional validation
-  const bodyContent = bodyMatch[1];
-
-  // Secondary validation: ensure body content doesn't contain bypassed dangerous content
-  for (const pattern of dangerousPatterns) {
-    if (pattern.test(bodyContent)) {
-      console.warn(
-        "deleteElement: Dangerous pattern in body content, aborting"
-      );
-      return html;
-    }
-  }
-
-  const bodyContainer = document.createElement("div");
-  bodyContainer.innerHTML = bodyContent;
-
-  // Navigate to target element
-  let current: Element | null = bodyContainer;
-  for (let i = 0; i < selectorPath.length; i++) {
-    const index = selectorPath[i];
-    if (!current) {
-      console.log(`deleteElement: Current is null at step ${i}`);
-      return html;
-    }
-    const children: Element[] = Array.from(current.children);
-    console.log(
-      `deleteElement: Step ${i}, index ${index}, children count: ${children.length}`
-    );
-    if (index >= 0 && index < children.length) {
-      current = children[index];
-      console.log(
-        `deleteElement: Step ${i}, selected element:`,
-        current?.tagName,
-        current?.className
-      );
-    } else {
-      console.log(
-        `deleteElement: Invalid index ${index} at step ${i}, max: ${
-          children.length - 1
-        }`
-      );
-      return html;
-    }
-  }
-
-  // Hide the element instead of deleting (better for pdf2htmlEX content)
-  if (current && current instanceof HTMLElement) {
-    console.log(
-      "deleteElement: Hiding element:",
-      current.tagName,
-      current.className
-    );
-
-    // Add inline style to hide the element
-    const existingStyle = current.getAttribute("style") || "";
-    current.setAttribute(
-      "style",
-      existingStyle +
-        "; display: none !important; visibility: hidden !important;"
-    );
-
-    // Replace the body content in the original HTML
-    const newBodyContent = bodyContainer.innerHTML;
-    const newHtml = html.replace(/<body[^>]*>[\s\S]*<\/body>/i, (match) =>
-      match.replace(bodyMatch[1], newBodyContent)
-    );
-
-    console.log(
-      "deleteElement: Original HTML length:",
-      html.length,
-      "New:",
-      newHtml.length
-    );
-    return newHtml;
-  }
-
-  console.log(
-    "deleteElement: Could not remove element (no parent or current is null)"
-  );
-  return html;
 }

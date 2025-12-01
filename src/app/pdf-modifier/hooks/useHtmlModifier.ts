@@ -1,7 +1,12 @@
 "use client";
 
 import { useCallback, useState, useEffect, useRef } from "react";
-import { modifyHtml, deleteElement, insertElement } from "../../../lib/htmlModify";
+import {
+  modifyHtml,
+  deleteElement,
+  insertElement,
+  moveElement,
+} from "../../../lib/htmlModify";
 import { ModifyOptions, StyleInfo } from "../types";
 
 export function useHtmlModifier() {
@@ -9,8 +14,9 @@ export function useHtmlModifier() {
   const [htmlContent, setHtmlContent] = useState<string | null>(null);
   const [originalHtml, setOriginalHtml] = useState<string | null>(null);
   const [modifiedHtml, setModifiedHtml] = useState<string | null>(null);
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [contentVersion, setContentVersion] = useState<number>(0);
   const [selectedElement, setSelectedElement] = useState<number[] | null>(null);
+  const [moveDistance, setMoveDistance] = useState<number>(10);
   const [styleInfo, setStyleInfo] = useState<StyleInfo>({
     fontColors: [],
     fontSizes: [],
@@ -23,31 +29,44 @@ export function useHtmlModifier() {
     removeDataImages: false,
   });
 
-  // Use ref to track current preview URL for cleanup
-  const previewUrlRef = useRef<string | null>(null);
+  // Work entirely in memory - only save to server on download
+  const workingCopyCache = useRef<string | null>(null);
 
-  // Create a preview blob URL from modified HTML for the iframe
-  const createPreview = useCallback((html: string) => {
-    console.log(
-      "createPreview: Creating new preview, HTML length:",
-      html.length
-    );
-    // Revoke previous blob URL to avoid memory leaks
-    if (previewUrlRef.current && previewUrlRef.current.startsWith("blob:")) {
-      console.log("createPreview: Revoking old URL:", previewUrlRef.current);
-      URL.revokeObjectURL(previewUrlRef.current);
+  // Get current working copy (always from memory cache)
+  const getWorkingCopy = useCallback((): string | null => {
+    if (workingCopyCache.current) {
+      console.log(
+        "getWorkingCopy: Using in-memory copy",
+        workingCopyCache.current.length,
+        "bytes"
+      );
+      return workingCopyCache.current;
     }
-    const blob = new Blob([html], { type: "text/html" });
-    const url = URL.createObjectURL(blob);
-    console.log("createPreview: New URL created:", url);
-    previewUrlRef.current = url;
-    setPreviewUrl(url);
-    console.log("createPreview: Preview URL state updated");
+    console.warn("getWorkingCopy: No cached copy available");
+    return null;
+  }, []);
+
+  // Update in-memory copy and update preview
+  const updateWorkingCopy = useCallback((html: string) => {
+    console.log(
+      "updateWorkingCopy: Updating in-memory copy",
+      html.length,
+      "bytes"
+    );
+
+    // Update cache and state
+    workingCopyCache.current = html;
+    setModifiedHtml(html);
+    setHtmlContent(html);
+    setContentVersion((v) => v + 1);
+
+    console.log("updateWorkingCopy: Updated state and cache");
   }, []);
 
   const fetchHtmlContent = useCallback(
     async (htmlName: string) => {
       try {
+        // Fetch original HTML
         const res = await fetch(
           `/api/upload/html?file=${encodeURIComponent(htmlName)}`
         );
@@ -56,15 +75,13 @@ export function useHtmlModifier() {
         setOriginalHtml(text);
         setLastHtmlName(htmlName);
 
-        // For initial display, use original HTML without modifications
+        // Store in memory cache
+        workingCopyCache.current = text;
+        console.log("Loaded HTML into memory:", text.length, "bytes");
+
+        // For initial display
         setHtmlContent(text);
         setModifiedHtml(text);
-        // Use API endpoint for initial preview to match original file exactly
-        // Revoke any previous blob URL
-        if (previewUrl && previewUrl.startsWith("blob:")) {
-          URL.revokeObjectURL(previewUrl);
-        }
-        setPreviewUrl(`/api/upload/html?file=${encodeURIComponent(htmlName)}`);
 
         // Extract style info for the editor controls
         const { styleInfo: newStyleInfo } = modifyHtml(text, {
@@ -88,7 +105,7 @@ export function useHtmlModifier() {
         console.error("Error fetching html", err);
       }
     },
-    [options, fcOverrides, fsOverrides, previewUrl]
+    [options, fcOverrides, fsOverrides]
   );
 
   const updateOption = <K extends keyof ModifyOptions>(
@@ -98,20 +115,20 @@ export function useHtmlModifier() {
     const newOptions = { ...options, [key]: value };
     setOptions(newOptions);
 
-    if (originalHtml) {
-      const { modifiedHtml: newHtml } = modifyHtml(originalHtml, {
+    // Get current working copy from memory
+    const currentHtml = getWorkingCopy();
+    if (currentHtml) {
+      const { modifiedHtml: newHtml } = modifyHtml(currentHtml, {
         ...newOptions,
         fcOverrides,
         fsOverrides,
       });
-      setModifiedHtml(newHtml);
-      setHtmlContent(newHtml);
-      // Update preview to show modifications
-      createPreview(newHtml);
+      // Update in-memory copy and preview
+      updateWorkingCopy(newHtml);
     }
   };
 
-  const updateClassOverride = (
+  const updateClassOverride = async (
     kind: "fc" | "fs",
     name: string,
     value: string
@@ -125,37 +142,33 @@ export function useHtmlModifier() {
     }
 
     if (kind === "fc") {
-      setFcOverrides((prev) => {
-        const next = { ...prev, [name]: value };
-        if (originalHtml) {
-          const { modifiedHtml: newHtml } = modifyHtml(originalHtml, {
-            ...options,
-            fcOverrides: next,
-            fsOverrides,
-          });
-          setModifiedHtml(newHtml);
-          setHtmlContent(newHtml);
-          // Update preview to show modifications
-          createPreview(newHtml);
-        }
-        return next;
-      });
+      const next = { ...fcOverrides, [name]: value };
+      setFcOverrides(next);
+
+      // Get current working copy from memory and apply changes
+      const currentHtml = getWorkingCopy();
+      if (currentHtml) {
+        const { modifiedHtml: newHtml } = modifyHtml(currentHtml, {
+          ...options,
+          fcOverrides: next,
+          fsOverrides,
+        });
+        updateWorkingCopy(newHtml);
+      }
     } else {
-      setFsOverrides((prev) => {
-        const next = { ...prev, [name]: value };
-        if (originalHtml) {
-          const { modifiedHtml: newHtml } = modifyHtml(originalHtml, {
-            ...options,
-            fcOverrides,
-            fsOverrides: next,
-          });
-          setModifiedHtml(newHtml);
-          setHtmlContent(newHtml);
-          // Update preview to show modifications
-          createPreview(newHtml);
-        }
-        return next;
-      });
+      const next = { ...fsOverrides, [name]: value };
+      setFsOverrides(next);
+
+      // Get current working copy from memory and apply changes
+      const currentHtml = getWorkingCopy();
+      if (currentHtml) {
+        const { modifiedHtml: newHtml } = modifyHtml(currentHtml, {
+          ...options,
+          fcOverrides,
+          fsOverrides: next,
+        });
+        updateWorkingCopy(newHtml);
+      }
     }
   };
 
@@ -175,10 +188,9 @@ export function useHtmlModifier() {
     setOriginalHtml(null);
     setHtmlContent(null);
     setModifiedHtml(null);
-    if (previewUrl) {
-      URL.revokeObjectURL(previewUrl);
-      setPreviewUrl(null);
-    }
+    setContentVersion(0);
+    // Clear cache
+    workingCopyCache.current = null;
   };
 
   const handleElementSelection = useCallback((path: number[]) => {
@@ -186,83 +198,148 @@ export function useHtmlModifier() {
   }, []);
 
   const deleteSelectedElement = useCallback(() => {
-    console.log(
-      "deleteSelectedElement called, selectedElement:",
-      selectedElement
-    );
-    console.log(
-      "deleteSelectedElement called, modifiedHtml length:",
-      modifiedHtml?.length
-    );
+    try {
+      console.log(
+        "deleteSelectedElement called, selectedElement:",
+        selectedElement
+      );
 
-    if (!selectedElement || !modifiedHtml) {
-      console.log("deleteSelectedElement: Aborted - missing data");
-      return;
+      if (!selectedElement) {
+        console.log("deleteSelectedElement: Aborted - no selection");
+        return;
+      }
+
+      // Get current working copy from memory
+      const currentHtml = getWorkingCopy();
+      if (!currentHtml) {
+        console.error("deleteSelectedElement: No working copy in memory");
+        return;
+      }
+
+      console.log(
+        "deleteSelectedElement: Calling deleteElement with path:",
+        selectedElement
+      );
+      const newHtml = deleteElement(currentHtml, selectedElement);
+      console.log(
+        "deleteSelectedElement: newHtml length:",
+        newHtml.length,
+        "vs old:",
+        currentHtml.length
+      );
+
+      if (newHtml === currentHtml) {
+        console.error(
+          "⚠️ DELETE FAILED: HTML unchanged after deleteElement call"
+        );
+      } else {
+        console.log("✅ HTML was modified by deleteElement");
+      }
+
+      // Update in-memory copy and preview
+      updateWorkingCopy(newHtml);
+      setSelectedElement(null);
+      console.log("deleteSelectedElement: Complete, preview updated");
+    } catch (error) {
+      console.error("❌ ERROR in deleteSelectedElement:", error);
+      console.error(
+        "Stack:",
+        error instanceof Error ? error.stack : "No stack trace"
+      );
     }
+  }, [selectedElement, getWorkingCopy, updateWorkingCopy]);
 
-    console.log(
-      "deleteSelectedElement: Calling deleteElement with path:",
-      selectedElement
-    );
-    const newHtml = deleteElement(modifiedHtml, selectedElement);
-    console.log(
-      "deleteSelectedElement: newHtml length:",
-      newHtml.length,
-      "vs old:",
-      modifiedHtml.length
-    );
+  const moveElementDirection = useCallback(
+    (direction: "up" | "down" | "left" | "right") => {
+      if (!selectedElement) return;
 
-    setModifiedHtml(newHtml);
-    setHtmlContent(newHtml);
-    setOriginalHtml(newHtml); // Update original to reflect deletion
-    createPreview(newHtml);
-    setSelectedElement(null);
-    console.log("deleteSelectedElement: Complete, preview should update");
-  }, [selectedElement, modifiedHtml, createPreview]);
+      const currentHtml = getWorkingCopy();
+      if (!currentHtml) return;
+
+      const newHtml = moveElement(
+        currentHtml,
+        selectedElement,
+        direction,
+        moveDistance
+      );
+
+      updateWorkingCopy(newHtml);
+    },
+    [selectedElement, moveDistance, getWorkingCopy, updateWorkingCopy]
+  );
 
   const insertElementAfterSelected = useCallback(
-    (elementType: string = 'p', content: string = 'New text', styles?: Record<string, string>) => {
-      console.log('=== INSERT ELEMENT START ===');
-      console.log('insertElementAfterSelected called, elementType:', elementType);
-      console.log('insertElementAfterSelected called, content:', content);
-      console.log('selectedElement:', selectedElement);
-      console.log('modifiedHtml exists:', !!modifiedHtml);
-      console.log('modifiedHtml length:', modifiedHtml?.length);
+    async (
+      elementType: string = "p",
+      content: string = "New text",
+      styles?: Record<string, string>
+    ) => {
+      console.log("=== INSERT ELEMENT START ===");
+      console.log(
+        "insertElementAfterSelected called, elementType:",
+        elementType
+      );
+      console.log("insertElementAfterSelected called, content:", content);
+      console.log("selectedElement:", selectedElement);
 
-      if (!modifiedHtml) {
-        console.error('insertElementAfterSelected: ABORTED - no modifiedHtml!');
+      // Get current working copy from memory
+      const currentHtml = getWorkingCopy();
+      if (!currentHtml) {
+        console.error("insertElementAfterSelected: No working copy in memory");
         return;
       }
 
       // If no element selected, append to body
       const path = selectedElement || [];
-      console.log('insertElementAfterSelected: Inserting at path:', path);
-      console.log('Path length:', path.length);
+      console.log("insertElementAfterSelected: Inserting at path:", path);
+      console.log("Path length:", path.length);
 
-      const newHtml = insertElement(modifiedHtml, path, elementType, content, styles);
-      console.log('insertElementAfterSelected: Result HTML length:', newHtml.length, 'vs original:', modifiedHtml.length);
-      console.log('HTML changed?', newHtml !== modifiedHtml);
-      
-      if (newHtml === modifiedHtml) {
-        console.error('⚠️ WARNING: HTML was not modified by insertElement!');
+      const newHtml = insertElement(
+        currentHtml,
+        path,
+        elementType,
+        content,
+        styles
+      );
+      console.log(
+        "insertElementAfterSelected: Result HTML length:",
+        newHtml.length,
+        "vs original:",
+        currentHtml.length
+      );
+      console.log("HTML changed?", newHtml !== currentHtml);
+
+      if (newHtml === currentHtml) {
+        console.error("⚠️ WARNING: HTML was not modified by insertElement!");
       }
 
-      setModifiedHtml(newHtml);
-      setHtmlContent(newHtml);
-      setOriginalHtml(newHtml); // Update original to reflect insertion
-      createPreview(newHtml);
-      console.log('insertElementAfterSelected: States updated, preview creating');
-      console.log('=== INSERT ELEMENT END ===');
+      // Update the selected element to point to the newly inserted element
+      // The new element is inserted after the current selection, so its path is:
+      // same parent, index + 1
+      if (selectedElement && selectedElement.length > 0) {
+        const newPath = [...selectedElement];
+        newPath[newPath.length - 1] = newPath[newPath.length - 1] + 1;
+        setSelectedElement(newPath);
+        console.log(
+          "insertElementAfterSelected: Auto-selected new element at path:",
+          newPath
+        );
+      }
+
+      // Update in-memory copy and preview
+      updateWorkingCopy(newHtml);
+      console.log(
+        "insertElementAfterSelected: States updated, preview updated"
+      );
+      console.log("=== INSERT ELEMENT END ===");
     },
-    [selectedElement, modifiedHtml, createPreview]
+    [selectedElement, getWorkingCopy, updateWorkingCopy]
   );
 
-  // Cleanup blob URL on unmount
+  // Cleanup on unmount (no blob URLs to revoke anymore since we use server files)
   useEffect(() => {
     return () => {
-      if (previewUrlRef.current && previewUrlRef.current.startsWith("blob:")) {
-        URL.revokeObjectURL(previewUrlRef.current);
-      }
+      // Cleanup logic if needed
     };
   }, []);
 
@@ -271,8 +348,10 @@ export function useHtmlModifier() {
     htmlContent,
     originalHtml,
     modifiedHtml,
-    previewUrl,
+    contentVersion,
     selectedElement,
+    moveDistance,
+    setMoveDistance,
     styleInfo,
     options,
     fcOverrides,
@@ -284,6 +363,7 @@ export function useHtmlModifier() {
     handleElementSelection,
     deleteSelectedElement,
     insertElementAfterSelected,
+    moveElementDirection,
     reset,
   };
 }

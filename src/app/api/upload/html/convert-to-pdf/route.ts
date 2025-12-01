@@ -53,12 +53,37 @@ export async function POST(req: Request) {
       );
     }
 
+    // Log first part of HTML for debugging
+    console.log("convert-to-pdf: Received HTML length:", html.length);
+
+    // Extract sample .y class definitions to verify positioning changes
+    const yClassMatches = html.match(
+      /\.y[0-9a-f]*\{[^}]*(?:top|bottom):[^}]*\}/gi
+    );
+    if (yClassMatches && yClassMatches.length > 0) {
+      console.log("convert-to-pdf: Sample .y class definitions (first 10):");
+      yClassMatches.slice(0, 10).forEach((match) => console.log("  ", match));
+    }
+
     // Sanitize HTML to prevent XSS, but preserve pdf2htmlEX content (including data URI images)
     const isPdf2Html =
       html.includes("Created by pdf2htmlEX") ||
       html.includes('name="generator" content="pdf2htmlEX"') ||
       html.includes("Base CSS for pdf2htmlEX");
     html = sanitizeHtml(html, { preservePdf2HtmlEx: isPdf2Html });
+
+    // Log after sanitization to verify CSS is preserved
+    const yClassMatchesAfter = html.match(
+      /\.y[0-9a-f]*\{[^}]*(?:top|bottom):[^}]*\}/gi
+    );
+    if (yClassMatchesAfter && yClassMatchesAfter.length > 0) {
+      console.log(
+        "convert-to-pdf: After sanitization, sample .y classes (first 10):"
+      );
+      yClassMatchesAfter
+        .slice(0, 10)
+        .forEach((match) => console.log("  ", match));
+    }
 
     // Check HTML size limit
     const htmlSize = Buffer.byteLength(html, "utf8");
@@ -101,6 +126,20 @@ html, body, div, span, p, h1, h2, h3, h4, h5, h6, img {
     }
 
     const htmlWithPrint = injectPrintStyles(html);
+
+    // Log what's being written to file (before Puppeteer)
+    const yClassMatchesFinal = htmlWithPrint.match(
+      /\.y[0-9a-f]*\{[^}]*(?:top|bottom):[^}]*\}/gi
+    );
+    if (yClassMatchesFinal && yClassMatchesFinal.length > 0) {
+      console.log(
+        "convert-to-pdf: Before Puppeteer, sample .y classes (first 10):"
+      );
+      yClassMatchesFinal
+        .slice(0, 10)
+        .forEach((match) => console.log("  ", match));
+    }
+
     await fs.writeFile(inPath, htmlWithPrint, "utf8");
 
     // docker image name to use (build with Dockerfile.puppeteer)
