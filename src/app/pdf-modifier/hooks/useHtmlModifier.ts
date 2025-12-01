@@ -222,26 +222,37 @@ export function useHtmlModifier() {
 
   const insertElementAfterSelected = useCallback(
     (elementType: string = 'p', content: string = 'New text', styles?: Record<string, string>) => {
+      console.log('=== INSERT ELEMENT START ===');
       console.log('insertElementAfterSelected called, elementType:', elementType);
       console.log('insertElementAfterSelected called, content:', content);
+      console.log('selectedElement:', selectedElement);
+      console.log('modifiedHtml exists:', !!modifiedHtml);
+      console.log('modifiedHtml length:', modifiedHtml?.length);
 
       if (!modifiedHtml) {
-        console.log('insertElementAfterSelected: Aborted - no HTML');
+        console.error('insertElementAfterSelected: ABORTED - no modifiedHtml!');
         return;
       }
 
       // If no element selected, append to body
       const path = selectedElement || [];
       console.log('insertElementAfterSelected: Inserting at path:', path);
+      console.log('Path length:', path.length);
 
       const newHtml = insertElement(modifiedHtml, path, elementType, content, styles);
-      console.log('insertElementAfterSelected: newHtml length:', newHtml.length, 'vs old:', modifiedHtml.length);
+      console.log('insertElementAfterSelected: Result HTML length:', newHtml.length, 'vs original:', modifiedHtml.length);
+      console.log('HTML changed?', newHtml !== modifiedHtml);
+      
+      if (newHtml === modifiedHtml) {
+        console.error('⚠️ WARNING: HTML was not modified by insertElement!');
+      }
 
       setModifiedHtml(newHtml);
       setHtmlContent(newHtml);
       setOriginalHtml(newHtml); // Update original to reflect insertion
       createPreview(newHtml);
-      console.log('insertElementAfterSelected: Complete, preview should update');
+      console.log('insertElementAfterSelected: States updated, preview creating');
+      console.log('=== INSERT ELEMENT END ===');
     },
     [selectedElement, modifiedHtml, createPreview]
   );

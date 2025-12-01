@@ -276,18 +276,30 @@ export function insertElement(
   content: string = 'New text',
   styles?: Record<string, string>
 ): string {
+  console.log('🔧 insertElement called with:', { 
+    htmlLength: html.length, 
+    selectorPath, 
+    elementType, 
+    content: content.substring(0, 50) 
+  });
+
   if (!selectorPath || selectorPath.length === 0) {
     console.log('insertElement: Empty selector path, appending to body');
     // Append to end of body
     const bodyMatch = html.match(/<body[^>]*>([\s\S]*)<\/body>/i);
     if (bodyMatch) {
+      console.log('insertElement: Found body tag, appending element');
       const styleAttr = styles ? ` style="${Object.entries(styles).map(([k, v]) => `${k}: ${v}`).join('; ')}"` : '';
       const newElement = `<${elementType}${styleAttr}>${escapeHtml(content)}</${elementType}>`;
+      console.log('insertElement: New element HTML:', newElement);
       const newBodyContent = bodyMatch[1] + newElement;
-      return html.replace(/<body[^>]*>[\s\S]*<\/body>/i, (match) =>
+      const result = html.replace(/<body[^>]*>[\s\S]*<\/body>/i, (match) =>
         match.replace(bodyMatch[1], newBodyContent)
       );
+      console.log('insertElement: Appended to body, new length:', result.length);
+      return result;
     }
+    console.warn('insertElement: Could not find body tag!');
     return html;
   }
 
@@ -346,8 +358,12 @@ export function insertElement(
 
   // Create new element
   if (current && current.parentElement) {
+    console.log('insertElement: Target element found:', current.tagName, current.className);
+    console.log('insertElement: Parent element:', current.parentElement.tagName);
+    
     const newElement = document.createElement(elementType);
     newElement.textContent = safeContent;
+    console.log('insertElement: Created new element:', elementType, 'with content:', safeContent.substring(0, 50));
     
     // Apply styles if provided
     if (styles) {
@@ -356,26 +372,30 @@ export function insertElement(
         const safeKey = key.replace(/[^a-zA-Z-]/g, '');
         newElement.style.setProperty(safeKey, value);
       });
+      console.log('insertElement: Applied styles to element');
     }
 
     // Insert after current element
     if (current.nextSibling) {
       current.parentElement.insertBefore(newElement, current.nextSibling);
+      console.log('insertElement: Inserted before next sibling');
     } else {
       current.parentElement.appendChild(newElement);
+      console.log('insertElement: Appended to parent (no next sibling)');
     }
 
     // Replace the body content in the original HTML
     const newBodyContent = bodyContainer.innerHTML;
+    console.log('insertElement: New body content length:', newBodyContent.length);
     const newHtml = html.replace(/<body[^>]*>[\s\S]*<\/body>/i, (match) =>
       match.replace(bodyMatch[1], newBodyContent)
     );
 
-    console.log('insertElement: Element inserted successfully');
+    console.log('insertElement: ✅ Element inserted successfully, new HTML length:', newHtml.length);
     return newHtml;
   }
 
-  console.log('insertElement: Could not insert element');
+  console.error('insertElement: ❌ Could not insert element - no current or parent element');
   return html;
 }
 
