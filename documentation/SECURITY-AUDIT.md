@@ -13,6 +13,7 @@ _Last Updated: December 1, 2025_
 ✅ **Authentication**: JWT-based with 500MB file limit for authenticated users
 
 ### Recent Updates (December 1, 2025)
+
 - ✅ Critical postMessage wildcard origin fixed
 - ✅ Critical innerHTML usage hardened with validation
 - ✅ Failed upload auto-cleanup implemented
@@ -140,6 +141,7 @@ _Last Updated: December 1, 2025_
    - ✅ Impact: Prevents message interception by malicious sites
 
 2. **~~Harden innerHTML Usage~~** ✅ FIXED (Nov 28, 2025)
+
    - ~~Location: `src/lib/htmlModify.ts`~~
    - ✅ Added: Double-layer validation with dangerous pattern detection
    - ✅ Impact: Additional XSS protection layer
@@ -161,15 +163,20 @@ _Last Updated: December 1, 2025_
    - **Current**: Direct string comparison `password === process.env.ADMIN_PASSWORD`
    - **Risk**: Passwords stored in plain text in `.env` file
    - **Impact**: If `.env` is compromised, attacker has immediate access
-   - **Recommendation**: 
+   - **Recommendation**:
+
      ```typescript
-     import bcrypt from 'bcryptjs';
-     
+     import bcrypt from "bcryptjs";
+
      // Store hashed passwords in .env:
      // ADMIN_PASSWORD_HASH=$2a$10$... (bcrypt hash)
-     
-     const isValid = await bcrypt.compare(password, process.env.ADMIN_PASSWORD_HASH);
+
+     const isValid = await bcrypt.compare(
+       password,
+       process.env.ADMIN_PASSWORD_HASH
+     );
      ```
+
    - **Effort**: Medium (requires password migration script)
    - **Priority**: HIGH - Should fix before production
 
@@ -179,11 +186,11 @@ _Last Updated: December 1, 2025_
    - **Current**: `JWT_SECRET || "fallback-secret-change-in-production"`
    - **Risk**: If JWT_SECRET not set, uses predictable fallback
    - **Impact**: Anyone can generate valid tokens with known secret
-   - **Recommendation**: 
+   - **Recommendation**:
      ```typescript
      const JWT_SECRET = process.env.JWT_SECRET;
      if (!JWT_SECRET || JWT_SECRET.length < 32) {
-       throw new Error('JWT_SECRET must be set and at least 32 characters');
+       throw new Error("JWT_SECRET must be set and at least 32 characters");
      }
      ```
    - **Effort**: Low (add validation)
@@ -196,14 +203,17 @@ _Last Updated: December 1, 2025_
    - **Risk**: Timing differences reveal if username exists
    - **Impact**: Attacker can enumerate valid usernames
    - **Recommendation**: Use constant-time comparison
+
      ```typescript
-     import crypto from 'crypto';
-     
-     const adminMatch = crypto.timingSafeEqual(
-       Buffer.from(username), 
-       Buffer.from(process.env.ADMIN_USERNAME || '')
-     ) && password === process.env.ADMIN_PASSWORD;
+     import crypto from "crypto";
+
+     const adminMatch =
+       crypto.timingSafeEqual(
+         Buffer.from(username),
+         Buffer.from(process.env.ADMIN_USERNAME || "")
+       ) && password === process.env.ADMIN_PASSWORD;
      ```
+
    - **Effort**: Low
    - **Priority**: MEDIUM
 
@@ -214,9 +224,10 @@ _Last Updated: December 1, 2025_
    - **Risk**: Attacker can bypass rate limiting by triggering restart
    - **Impact**: Rate limiting not effective during high-traffic or restart scenarios
    - **Recommendation**: Use Redis for persistent rate limiting
+
      ```typescript
-     import redisCache from '@/lib/redisCache';
-     
+     import redisCache from "@/lib/redisCache";
+
      async function checkRateLimit(req: Request) {
        const key = `ratelimit:${ip}`;
        const count = await redisCache.client.incr(key);
@@ -226,6 +237,7 @@ _Last Updated: December 1, 2025_
        return { allowed: count <= 10 };
      }
      ```
+
    - **Effort**: Medium (Redis already available)
    - **Priority**: MEDIUM - Good enhancement with Redis now available
 
@@ -348,6 +360,7 @@ _Last Updated: December 1, 2025_
 ### Implemented Optimizations ✅
 
 1. **Redis Caching for PDF Conversions** ✅ (Dec 1, 2025)
+
    - Caches converted PDF→HTML results using file hash as key
    - 99% faster for repeated conversions (<50ms vs 5-60s)
    - Configurable TTL (default 1 hour)
@@ -603,6 +616,7 @@ _Last Updated: December 1, 2025_
 ### 📝 High Priority (Fix Within 1 Week)
 
 2. **Implement password hashing with bcrypt** - `src/lib/jwtAuth.ts:169-184` ⚠️ NEW
+
    - Current: Plain-text password comparison
    - Fix: Use bcrypt.compare() with hashed passwords
    - Impact: HIGH - Protects against .env compromise
@@ -617,16 +631,19 @@ _Last Updated: December 1, 2025_
 ### 📝 Medium Priority (Fix Within 1 Month)
 
 4. **~~Implement failed upload cleanup~~** ✅ COMPLETED (Nov 28, 2025)
+
    - ~~Track and clean orphaned files from failed uploads~~
    - ✅ Two-tier cleanup system implemented
 
 5. **Migrate rate limiting to Redis** - `src/lib/jwtAuth.ts:93` ⚠️ NEW
+
    - Current: In-memory Map (lost on restart)
    - Fix: Use existing redisCache for persistent rate limiting
    - Impact: MEDIUM - Better DDoS protection
    - Effort: 2-3 hours
 
 6. **Add HTML size validation** - `src/app/pdf-modifier/page.tsx`
+
    - Warn users before downloading large files (>50MB)
    - Effort: 1 hour
 
@@ -720,6 +737,7 @@ curl -H "Authorization: Bearer <token>" -F "file=@large.pdf" http://localhost:30
 ### Current Security Score: 8.2/10 ⬆️ (+0.7 from previous 7.5/10)
 
 **Score Evolution:**
+
 - Initial (Nov 28): 7.5/10
 - After critical fixes (Nov 28): 9.0/10
 - After jwtAuth review (Dec 1): 8.2/10 (new findings in authentication module)
@@ -732,40 +750,33 @@ curl -H "Authorization: Bearer <token>" -F "file=@large.pdf" http://localhost:30
   - ❌ Plain-text password comparison
   - ❌ Insecure JWT_SECRET fallback
   - ⚠️ No timing attack protection
-  
 - **Input Validation**: 9/10 ✅ (comprehensive checks)
   - ✅ Magic number validation
   - ✅ File size limits
   - ✅ Filename sanitization
   - ✅ HTML sanitization with double validation
-  
 - **Output Encoding**: 9/10 ✅ (innerHTML hardened)
   - ✅ Dangerous pattern detection
   - ✅ Double-layer validation
   - ✅ HTML entities escaped
-  
 - **Session Management**: 7/10 ⚠️ (no refresh mechanism)
   - ✅ 30-day token expiration
   - ❌ No refresh token mechanism
   - ❌ Cannot revoke compromised tokens
-  
 - **Rate Limiting**: 7/10 ⚠️ (in-memory, lost on restart)
   - ✅ 10 req/min per IP
   - ✅ Automatic cleanup
   - ❌ In-memory (lost on restart)
   - ⚠️ Redis available but not integrated
-  
 - **Error Handling**: 8/10 ✅ (good coverage)
   - ✅ Comprehensive try-catch blocks
   - ✅ Graceful degradation
   - ⚠️ Some sensitive data in logs
-  
 - **Security Headers**: 8/10 ✅ (good but missing CSP)
   - ✅ X-Frame-Options
   - ✅ X-Content-Type-Options
   - ✅ Referrer-Policy
   - ❌ Content-Security-Policy
-  
 - **Data Protection**: 8/10 ✅ (temporary storage)
   - ✅ Auto-cleanup (5min failed, 60min successful)
   - ✅ No permanent storage
@@ -774,6 +785,7 @@ curl -H "Authorization: Bearer <token>" -F "file=@large.pdf" http://localhost:30
 **Target Score:** 9.5/10 (with medium-priority action items completed)
 
 **Priority Fixes to Reach 9.5/10:**
+
 1. Implement bcrypt password hashing (+0.5)
 2. Remove JWT_SECRET fallback (+0.3)
 3. Add timing attack protection (+0.2)
@@ -786,6 +798,7 @@ curl -H "Authorization: Bearer <token>" -F "file=@large.pdf" http://localhost:30
 ### December 1, 2025 - Authentication Security Review
 
 **New Security Findings:**
+
 - ⚠️ Identified 5 security issues in `src/lib/jwtAuth.ts`
 - ⚠️ Plain-text password storage (HIGH RISK)
 - ⚠️ Insecure JWT_SECRET fallback (CRITICAL)
@@ -794,12 +807,14 @@ curl -H "Authorization: Bearer <token>" -F "file=@large.pdf" http://localhost:30
 - ⚠️ No token refresh mechanism (LOW)
 
 **Performance Enhancements:**
+
 - ✅ Redis caching for PDF conversions (99% faster repeated conversions)
 - ✅ Gzip compression for API responses (70-80% bandwidth reduction)
 - ✅ Migrated middleware.ts → proxy.ts (Next.js 15+ compatibility)
 - ✅ Created comprehensive performance optimization documentation
 
 **Documentation:**
+
 - ✅ Created `PERFORMANCE-OPTIMIZATIONS.md` (detailed guide)
 - ✅ Created `REDIS-COMPRESSION-QUICKSTART.md` (quick setup)
 - ✅ Updated security audit with authentication module findings
@@ -807,6 +822,7 @@ curl -H "Authorization: Bearer <token>" -F "file=@large.pdf" http://localhost:30
 ### November 28, 2025 - Critical Security Fixes
 
 **Security Improvements:**
+
 - ✅ Fixed postMessage wildcard origin vulnerability (CRITICAL)
 - ✅ Hardened innerHTML usage with double validation (MEDIUM)
 - ✅ Implemented failed upload auto-cleanup (MEDIUM)
@@ -815,18 +831,21 @@ curl -H "Authorization: Bearer <token>" -F "file=@large.pdf" http://localhost:30
 - ✅ Fixed admin authentication for large file uploads
 
 **Performance Improvements:**
+
 - ✅ Docker timeout: 120s → 600s (10 minutes)
 - ✅ Memory allocation: Added 4GB per container
 - ✅ CPU allocation: Added 2 cores per container
 - ✅ Buffer size: Increased to 50MB for stdout/stderr
 
 **Bug Fixes:**
+
 - ✅ Fixed large PDF conversion failures (timeout issue)
 - ✅ Fixed text visibility on PDF load (transparent color detection)
 - ✅ Fixed background color selector functionality
 - ✅ Added loading spinner for user feedback
 
 **New Features:**
+
 - ✅ Element selection and deletion in PDF editor
 - ✅ Two-tier file cleanup system (5min failed, 60min successful)
 - Keyboard shortcuts (P for parent, Backspace/Delete, ESC)
@@ -887,6 +906,7 @@ curl -H "Authorization: Bearer <token>" -F "file=@large.pdf" http://localhost:30
 **Current Status (December 1, 2025):**
 
 ✅ **Strengths:**
+
 - All critical vulnerabilities from initial audit (postMessage, innerHTML) have been fixed
 - Comprehensive input validation and file sanitization
 - Performance optimized with Redis caching (99% faster) and gzip compression (70-80% smaller)
@@ -894,6 +914,7 @@ curl -H "Authorization: Bearer <token>" -F "file=@large.pdf" http://localhost:30
 - Optional virus scanning with ClamAV
 
 ⚠️ **Immediate Concerns (Fix Before Production):**
+
 1. **CRITICAL**: Insecure JWT_SECRET fallback allows token forgery
 2. **HIGH**: Plain-text passwords in .env vulnerable to compromise
 3. **HIGH**: No timing attack protection enables username enumeration
@@ -901,6 +922,7 @@ curl -H "Authorization: Bearer <token>" -F "file=@large.pdf" http://localhost:30
 🎯 **Recommended Action Plan:**
 
 **Phase 1 (This Week):**
+
 - Remove JWT_SECRET fallback (5 minutes)
 - Implement bcrypt password hashing (4 hours)
 - Add timing attack protection (1 hour)
@@ -908,12 +930,14 @@ curl -H "Authorization: Bearer <token>" -F "file=@large.pdf" http://localhost:30
 - **Security Score Impact**: 8.2/10 → 9.0/10
 
 **Phase 2 (This Month):**
+
 - Migrate rate limiting to Redis (3 hours)
 - Add HTML size validation warnings (1 hour)
 - **Total Effort**: ~4 hours
 - **Security Score Impact**: 9.0/10 → 9.5/10
 
 **Phase 3 (Optional - Future):**
+
 - Token refresh mechanism for better session management
 - Content Security Policy for additional XSS protection
 - CSRF protection for form submissions

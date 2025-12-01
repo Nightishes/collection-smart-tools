@@ -23,6 +23,7 @@ export default function PageModifyHtml() {
     fetchHtmlContent,
     handleElementSelection,
     deleteSelectedElement,
+    insertElementAfterSelected,
     reset,
     fcOverrides,
     fsOverrides,
@@ -240,6 +241,20 @@ export default function PageModifyHtml() {
       if (event.data && event.data.type === "ELEMENT_SELECTED") {
         console.log("Element selected, path:", event.data.path);
         handleElementSelection(event.data.path);
+      } else if (event.data && event.data.type === "INSERT_ELEMENT") {
+        console.log(
+          "Insert element requested via keyboard, path:",
+          event.data.path
+        );
+        // Prompt for content and insert
+        const content = prompt('Enter text content:', 'New paragraph');
+        if (content !== null) {
+          // Set the element path for insertion context
+          if (event.data.path) {
+            handleElementSelection(event.data.path);
+          }
+          setTimeout(() => insertElementAfterSelected('p', content), 0);
+        }
       } else if (event.data && event.data.type === "DELETE_ELEMENT") {
         console.log(
           "Delete element requested via keyboard, path:",
@@ -331,6 +346,11 @@ export default function PageModifyHtml() {
                 if (e.key === "p" || e.key === "P") {
                   e.preventDefault();
                   selectParent();
+                } else if (e.key === "i" || e.key === "I") {
+                  e.preventDefault();
+                  const path = selectedElement ? getElementPath(selectedElement) : null;
+                  console.log("Insert element shortcut triggered, path:", path);
+                  window.parent.postMessage({ type: "INSERT_ELEMENT", path }, window.location.origin);
                 } else if (e.key === "Backspace" || e.key === "Delete") {
                   e.preventDefault();
                   if (selectedElement) {
@@ -358,7 +378,7 @@ export default function PageModifyHtml() {
                   const path = getElementPath(target);
                   console.log("Element path:", path);
                   console.log("Sending message to parent with path:", path);
-                  console.log("💡 Press 'P' to select parent element, 'ESC' to deselect");
+                  console.log("💡 Shortcuts: 'I' = Insert <p>, 'P' = Parent, 'Delete' = Remove, 'ESC' = Deselect");
                   window.parent.postMessage({ type: "ELEMENT_SELECTED", path }, window.location.origin);
                 }
               }, true);
@@ -408,6 +428,7 @@ export default function PageModifyHtml() {
               isAdmin={isAdmin}
               selectedElement={selectedElement}
               onDeleteSelected={deleteSelectedElement}
+              onInsertElement={insertElementAfterSelected}
             />
 
             <div

@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useState, useEffect, useRef } from "react";
-import { modifyHtml, deleteElement } from "../../../lib/htmlModify";
+import { modifyHtml, deleteElement, insertElement } from "../../../lib/htmlModify";
 import { ModifyOptions, StyleInfo } from "../types";
 
 export function useHtmlModifier() {
@@ -220,6 +220,32 @@ export function useHtmlModifier() {
     console.log("deleteSelectedElement: Complete, preview should update");
   }, [selectedElement, modifiedHtml, createPreview]);
 
+  const insertElementAfterSelected = useCallback(
+    (elementType: string = 'p', content: string = 'New text', styles?: Record<string, string>) => {
+      console.log('insertElementAfterSelected called, elementType:', elementType);
+      console.log('insertElementAfterSelected called, content:', content);
+
+      if (!modifiedHtml) {
+        console.log('insertElementAfterSelected: Aborted - no HTML');
+        return;
+      }
+
+      // If no element selected, append to body
+      const path = selectedElement || [];
+      console.log('insertElementAfterSelected: Inserting at path:', path);
+
+      const newHtml = insertElement(modifiedHtml, path, elementType, content, styles);
+      console.log('insertElementAfterSelected: newHtml length:', newHtml.length, 'vs old:', modifiedHtml.length);
+
+      setModifiedHtml(newHtml);
+      setHtmlContent(newHtml);
+      setOriginalHtml(newHtml); // Update original to reflect insertion
+      createPreview(newHtml);
+      console.log('insertElementAfterSelected: Complete, preview should update');
+    },
+    [selectedElement, modifiedHtml, createPreview]
+  );
+
   // Cleanup blob URL on unmount
   useEffect(() => {
     return () => {
@@ -246,6 +272,7 @@ export function useHtmlModifier() {
     fetchHtmlContent,
     handleElementSelection,
     deleteSelectedElement,
+    insertElementAfterSelected,
     reset,
   };
 }

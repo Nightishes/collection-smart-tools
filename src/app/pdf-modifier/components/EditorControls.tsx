@@ -20,6 +20,7 @@ type EditorControlsProps = {
   onClassOverrideReset?: (kind: "fc" | "fs", name: string) => void;
   selectedElement?: number[] | null;
   onDeleteSelected?: () => void;
+  onInsertElement?: (elementType: string, content: string) => void;
   onDownloadModified: () => void;
   onDownloadOriginal: () => void;
   onDownloadPdf: () => void;
@@ -40,6 +41,7 @@ export function EditorControls({
   onClassOverrideReset,
   selectedElement,
   onDeleteSelected,
+  onInsertElement,
   onDownloadModified,
   onDownloadOriginal,
   onDownloadPdf,
@@ -78,18 +80,33 @@ export function EditorControls({
           />
           Remove embedded data: images (data:image/*)
         </label>
+        {onInsertElement && (
+          <button
+            onClick={() => {
+              const content = prompt('Enter text content:', 'New paragraph');
+              if (content !== null) {
+                onInsertElement('p', content);
+              }
+            }}
+            className={styles.ctaButtonIframe}
+            style={{ backgroundColor: "#28a745", marginLeft: "auto" }}
+            title="Insert paragraph after selected element (or at end if none selected)"
+          >
+            Insert <b>&lt;p&gt;</b>
+          </button>
+        )}
         {selectedElement && onDeleteSelected && (
           <button
             onClick={onDeleteSelected}
             className={styles.ctaButtonIframe}
-            style={{ backgroundColor: "#dc3545", marginLeft: "auto" }}
+            style={{ backgroundColor: "#dc3545" }}
           >
             Delete Selected
           </button>
         )}
         <button
           onClick={onDownloadModified}
-          style={{ marginLeft: "auto" }}
+          style={{ marginLeft: selectedElement ? 8 : "auto" }}
           className={styles.ctaButtonIframe}
         >
           Download as HTML

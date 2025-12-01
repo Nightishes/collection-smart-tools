@@ -261,6 +261,132 @@ export function modifyHtml(
 }
 
 /**
+ * Insert a new HTML element after the selected element
+ * @param html - Original HTML content
+ * @param selectorPath - Array of indices representing path to insert location
+ * @param elementType - Type of element to insert (e.g., 'p', 'div', 'span')
+ * @param content - Text content for the new element
+ * @param styles - Optional inline styles for the new element
+ * @returns Modified HTML with new element inserted
+ */
+export function insertElement(
+  html: string,
+  selectorPath: number[],
+  elementType: string = 'p',
+  content: string = 'New text',
+  styles?: Record<string, string>
+): string {
+  if (!selectorPath || selectorPath.length === 0) {
+    console.log('insertElement: Empty selector path, appending to body');
+    // Append to end of body
+    const bodyMatch = html.match(/<body[^>]*>([\s\S]*)<\/body>/i);
+    if (bodyMatch) {
+      const styleAttr = styles ? ` style="${Object.entries(styles).map(([k, v]) => `${k}: ${v}`).join('; ')}"` : '';
+      const newElement = `<${elementType}${styleAttr}>${escapeHtml(content)}</${elementType}>`;
+      const newBodyContent = bodyMatch[1] + newElement;
+      return html.replace(/<body[^>]*>[\s\S]*<\/body>/i, (match) =>
+        match.replace(bodyMatch[1], newBodyContent)
+      );
+    }
+    return html;
+  }
+
+  console.log('insertElement: Inserting', elementType, 'at path:', selectorPath);
+
+  // Validate element type (security check - only allow safe elements)
+  const safeElements = ['p', 'div', 'span', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'br', 'hr'];
+  if (!safeElements.includes(elementType.toLowerCase())) {
+    console.warn('insertElement: Unsafe element type:', elementType);
+    return html;
+  }
+
+  // Validate HTML structure before parsing (security check)
+  const dangerousPatterns = [
+    /<script[^>]*>/gi,
+    /javascript:/gi,
+    /on\w+\s*=/gi, // event handlers
+  ];
+
+  for (const pattern of dangerousPatterns) {
+    if (pattern.test(html)) {
+      console.warn('insertElement: Dangerous pattern detected in HTML, aborting');
+      return html;
+    }
+  }
+
+  // Escape content to prevent XSS
+  const safeContent = escapeHtml(content);
+
+  const bodyMatch = html.match(/<body[^>]*>([\s\S]*)<\/body>/i);
+  if (!bodyMatch) {
+    console.log('insertElement: Could not find body tag');
+    return html;
+  }
+
+  const bodyContent = bodyMatch[1];
+  const bodyContainer = document.createElement('div');
+  bodyContainer.innerHTML = bodyContent;
+
+  // Navigate to target element
+  let current: Element | null = bodyContainer;
+  for (let i = 0; i < selectorPath.length; i++) {
+    const index = selectorPath[i];
+    if (!current) {
+      console.log(`insertElement: Current is null at step ${i}`);
+      return html;
+    }
+    const children: Element[] = Array.from(current.children);
+    if (index >= 0 && index < children.length) {
+      current = children[index];
+    } else {
+      console.log(`insertElement: Invalid index ${index} at step ${i}`);
+      return html;
+    }
+  }
+
+  // Create new element
+  if (current && current.parentElement) {
+    const newElement = document.createElement(elementType);
+    newElement.textContent = safeContent;
+    
+    // Apply styles if provided
+    if (styles) {
+      Object.entries(styles).forEach(([key, value]) => {
+        // Validate style property names (basic sanitization)
+        const safeKey = key.replace(/[^a-zA-Z-]/g, '');
+        newElement.style.setProperty(safeKey, value);
+      });
+    }
+
+    // Insert after current element
+    if (current.nextSibling) {
+      current.parentElement.insertBefore(newElement, current.nextSibling);
+    } else {
+      current.parentElement.appendChild(newElement);
+    }
+
+    // Replace the body content in the original HTML
+    const newBodyContent = bodyContainer.innerHTML;
+    const newHtml = html.replace(/<body[^>]*>[\s\S]*<\/body>/i, (match) =>
+      match.replace(bodyMatch[1], newBodyContent)
+    );
+
+    console.log('insertElement: Element inserted successfully');
+    return newHtml;
+  }
+
+  console.log('insertElement: Could not insert element');
+  return html;
+}
+
+// Helper function to escape HTML entities
+function escapeHtml(text: string): string {
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
+}
+
+/**
  * Delete an element from HTML by selector path
  * @param html - Original HTML content
  * @param selectorPath - Array of indices representing path to element (e.g., [0, 2, 1])
