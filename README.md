@@ -42,6 +42,11 @@ All documentation is in the [`documentation/`](documentation/) folder.
 - **[SECURITY-AUDIT.md](documentation/SECURITY-AUDIT.md)** - Security audit report
 - **[VIRUS-SCANNING-SUMMARY.md](documentation/VIRUS-SCANNING-SUMMARY.md)** - Virus scanning implementation
 
+### Performance
+
+- **[PERFORMANCE-OPTIMIZATIONS.md](documentation/PERFORMANCE-OPTIMIZATIONS.md)** - Redis caching & compression guide
+- **[REDIS-COMPRESSION-QUICKSTART.md](REDIS-COMPRESSION-QUICKSTART.md)** - Quick setup guide
+
 ## 🎯 Features
 
 - **PDF → HTML** conversion (pdf2htmlEX)
@@ -55,6 +60,8 @@ All documentation is in the [`documentation/`](documentation/) folder.
 - **File validation** (magic numbers, size limits)
 - **HTML sanitization** for security
 - **Automatic file cleanup** (60-minute retention)
+- **Redis caching** for faster repeated conversions (optional)
+- **Gzip compression** for reduced bandwidth usage
 
 ## 🐳 Docker Images
 
@@ -63,6 +70,7 @@ All documentation is in the [`documentation/`](documentation/) folder.
 | pdf2html                   | PDF → HTML (pdf2htmlEX) | 300MB |
 | collection-tools-puppeteer | HTML → PDF (Chromium)   | 1.6GB |
 | clamav                     | Virus scanning daemon   | 400MB |
+| redis                      | Cache for performance   | 15MB  |
 
 ## 🔧 Available Commands
 

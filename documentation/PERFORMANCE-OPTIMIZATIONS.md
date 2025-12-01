@@ -426,7 +426,7 @@ docker-compose restart redis
 
 - Redis Documentation: https://redis.io/docs/
 - Node.js Redis Client: https://github.com/redis/node-redis
-- Next.js Middleware: https://nextjs.org/docs/app/building-your-application/routing/middleware
+- Next.js Proxy: https://nextjs.org/docs/app/api-reference/file-conventions/proxy
 - Gzip Compression: https://nodejs.org/api/zlib.html
 - HTTP Compression: https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Content-Encoding
 
