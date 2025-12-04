@@ -56,7 +56,7 @@ export function FileList({ files }: FileListProps) {
             {f.status === "uploading" && (
               <div className={styles.loadingContainer}>
                 <div className={styles.spinner}></div>
-                <span> Processing large PDF...</span>
+                <span> Processing PDF...</span>
               </div>
             )}
             {f.status === "error" && (

@@ -63,6 +63,135 @@ export function useHtmlModifier() {
     console.log("updateWorkingCopy: Updated state and cache");
   }, []);
 
+  // Reorganize structure: merge full-page containers and move siblings inside them
+  const reorganizeContainers = useCallback((html: string): string => {
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(html, "text/html");
+
+    // Process each .pc container separately
+    const pcContainers = doc.querySelectorAll(".pc");
+
+    pcContainers.forEach((pc) => {
+      // Find only DIRECT .c children of this .pc (not nested ones)
+      const directCContainers = Array.from(pc.children).filter((child) =>
+        child.classList.contains("c")
+      );
+
+      if (directCContainers.length === 0) return;
+
+      console.log(
+        `Found ${directCContainers.length} direct .c containers in .pc:`,
+        directCContainers.map((c) => c.classList.toString())
+      );
+
+      // Unwrap ALL .c containers - move their children directly to .pc level
+      directCContainers.forEach((container) => {
+        const classList = Array.from(container.classList);
+        const hasX0 = classList.includes("x0");
+
+        if (hasX0) {
+          // .c.x0 - unwrap it (replace container with its children)
+          console.log("Unwrapping .c.x0:", container.classList.toString());
+          const parent = container.parentElement;
+          if (parent) {
+            while (container.firstChild) {
+              parent.insertBefore(container.firstChild, container);
+            }
+            container.remove();
+          }
+        } else {
+          // .c with non-zero x position - keep dimensions but remove .c class
+          console.log(
+            "Processing .c with position:",
+            container.classList.toString()
+          );
+
+          // Remove the 'c' class but keep all other classes (width, height, position)
+          container.classList.remove("c");
+
+          // Set position absolute to maintain layout
+          (container as HTMLElement).style.position = "absolute";
+
+          console.log(
+            "Removed .c class, added position absolute, keeping:",
+            container.classList.toString()
+          );
+
+          // Check if it contains only spans for positioning
+          const children = Array.from(container.children);
+          const spans = children.filter(
+            (child) => child.tagName.toLowerCase() === "span"
+          );
+          const onlySpans =
+            spans.length > 0 && spans.length === children.length;
+
+          if (onlySpans && spans.length > 1) {
+            // Position spans
+            const containerWidth = (container as HTMLElement).offsetWidth;
+            const spanWidth =
+              spans.length > 0 ? (spans[0] as HTMLElement).offsetWidth : 0;
+            const spacing =
+              spanWidth > 0 ? containerWidth / (spanWidth * spans.length) : 0;
+
+            spans.forEach((span, index) => {
+              if (index > 0) {
+                const leftPosition = spacing * index;
+                (span as HTMLElement).style.position = "relative";
+                (span as HTMLElement).style.left = `${leftPosition}px`;
+              }
+            });
+          }
+        }
+      });
+    });
+
+    // Fix position classes for stray elements (including .t text elements)
+    const fixPositionClasses = () => {
+      // Find the first .c container with a non-x0 position class to use as reference
+      const allCContainers = doc.querySelectorAll(".c");
+      let referenceXClass: string | null = null;
+      let referenceYClass: string | null = null;
+
+      for (const container of allCContainers) {
+        const classList = Array.from(container.classList);
+        const xClass = classList.find(
+          (cls) => cls.includes("x") && cls !== "x0"
+        );
+        const yClass = classList.find(
+          (cls) => cls.includes("y") && cls !== "y0"
+        );
+
+        if (xClass && !referenceXClass) {
+          referenceXClass = xClass;
+        }
+        if (yClass && !referenceYClass) {
+          referenceYClass = yClass;
+        }
+
+        if (referenceXClass && referenceYClass) break;
+      }
+
+      // Now fix stray .t.m0 text elements that have x0
+      if (referenceXClass) {
+        // Fix .t.m0 text elements with x0 inside .c containers
+        const strayTextElements = doc.querySelectorAll(".t.m0.x0");
+        strayTextElements.forEach((element) => {
+          element.classList.remove("x0");
+          element.classList.add(referenceXClass);
+          console.log(
+            `Fixed .t.m0 element x0 -> ${referenceXClass}`,
+            element.classList.toString()
+          );
+        });
+      }
+    };
+
+    fixPositionClasses();
+
+    // Return the full document HTML to preserve <head> with styles
+    return doc.documentElement.outerHTML || html;
+  }, []);
+
   const fetchHtmlContent = useCallback(
     async (htmlName: string) => {
       try {
@@ -71,7 +200,11 @@ export function useHtmlModifier() {
           `/api/upload/html?file=${encodeURIComponent(htmlName)}`
         );
         if (!res.ok) throw new Error("Failed to fetch HTML");
-        const text = await res.text();
+        let text = await res.text();
+
+        // Reorganize containers
+        text = reorganizeContainers(text);
+
         setOriginalHtml(text);
         setLastHtmlName(htmlName);
 
@@ -105,7 +238,7 @@ export function useHtmlModifier() {
         console.error("Error fetching html", err);
       }
     },
-    [options, fcOverrides, fsOverrides]
+    [options, fcOverrides, fsOverrides, reorganizeContainers]
   );
 
   const updateOption = <K extends keyof ModifyOptions>(
@@ -115,10 +248,11 @@ export function useHtmlModifier() {
     const newOptions = { ...options, [key]: value };
     setOptions(newOptions);
 
-    // Get current working copy from memory
-    const currentHtml = getWorkingCopy();
-    if (currentHtml) {
-      const { modifiedHtml: newHtml } = modifyHtml(currentHtml, {
+    // IMPORTANT: Always use originalHtml when toggling options like removeDataImages
+    // to ensure images can be restored when toggling off
+    const sourceHtml = originalHtml || getWorkingCopy();
+    if (sourceHtml) {
+      const { modifiedHtml: newHtml } = modifyHtml(sourceHtml, {
         ...newOptions,
         fcOverrides,
         fsOverrides,
@@ -145,10 +279,10 @@ export function useHtmlModifier() {
       const next = { ...fcOverrides, [name]: value };
       setFcOverrides(next);
 
-      // Get current working copy from memory and apply changes
-      const currentHtml = getWorkingCopy();
-      if (currentHtml) {
-        const { modifiedHtml: newHtml } = modifyHtml(currentHtml, {
+      // IMPORTANT: Use originalHtml to ensure all options are consistently applied
+      const sourceHtml = originalHtml || getWorkingCopy();
+      if (sourceHtml) {
+        const { modifiedHtml: newHtml } = modifyHtml(sourceHtml, {
           ...options,
           fcOverrides: next,
           fsOverrides,
@@ -159,10 +293,10 @@ export function useHtmlModifier() {
       const next = { ...fsOverrides, [name]: value };
       setFsOverrides(next);
 
-      // Get current working copy from memory and apply changes
-      const currentHtml = getWorkingCopy();
-      if (currentHtml) {
-        const { modifiedHtml: newHtml } = modifyHtml(currentHtml, {
+      // IMPORTANT: Use originalHtml to ensure all options are consistently applied
+      const sourceHtml = originalHtml || getWorkingCopy();
+      if (sourceHtml) {
+        const { modifiedHtml: newHtml } = modifyHtml(sourceHtml, {
           ...options,
           fcOverrides,
           fsOverrides: next,

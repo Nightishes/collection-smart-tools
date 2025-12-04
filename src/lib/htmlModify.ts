@@ -579,6 +579,46 @@ export function moveElement(
       targetElement = targetElement.parentElement as HTMLElement;
     }
 
+    // Fallback: If no positioning class found, use inline styles
+    if (!positionClass && current instanceof HTMLElement) {
+      console.log(
+        "moveElement: No positioning class found, using inline styles"
+      );
+
+      const currentStyle = window.getComputedStyle(current);
+      const isVertical = direction === "up" || direction === "down";
+
+      if (isVertical) {
+        let topValue =
+          parseFloat(currentStyle.top) || parseFloat(current.style.top) || 0;
+        if (direction === "up") {
+          topValue -= moveDistance;
+        } else {
+          topValue += moveDistance;
+        }
+        current.style.top = `${topValue}px`;
+        if (!current.style.position || current.style.position === "static") {
+          current.style.position = "absolute";
+        }
+      } else {
+        let leftValue =
+          parseFloat(currentStyle.left) || parseFloat(current.style.left) || 0;
+        if (direction === "left") {
+          leftValue -= moveDistance;
+        } else {
+          leftValue += moveDistance;
+        }
+        current.style.left = `${leftValue}px`;
+        if (!current.style.position || current.style.position === "static") {
+          current.style.position = "absolute";
+        }
+      }
+
+      // Update the body content
+      const newBodyContent = bodyContainer.innerHTML;
+      return html.replace(bodyMatch[1], newBodyContent);
+    }
+
     if (!positionClass) return html;
 
     // For horizontal movement, create a unique class to avoid affecting other elements
