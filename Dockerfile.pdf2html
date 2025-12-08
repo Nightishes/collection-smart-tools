@@ -9,5 +9,12 @@ RUN apt-get update && apt-get install -y \
 
 WORKDIR /pdf
 
+# Create non-root user for security
+RUN groupadd -r pdfuser && useradd -r -g pdfuser pdfuser \
+    && chown -R pdfuser:pdfuser /pdf
+
+# Switch to non-root user
+USER pdfuser
+
 # Set default entrypoint to pdf2htmlEX
 ENTRYPOINT ["pdf2htmlEX"]

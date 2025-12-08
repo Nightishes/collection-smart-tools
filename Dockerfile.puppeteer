@@ -48,11 +48,21 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 WORKDIR /app
 
+# Create non-root user for security
+RUN groupadd -r appuser && useradd -r -g appuser -G audio,video appuser \
+    && mkdir -p /home/appuser/Downloads \
+    && chown -R appuser:appuser /app /home/appuser
+
 # Install puppeteer; it will bring its own Chromium compatible with Node
-RUN npm install --no-audit --no-fund puppeteer@latest
+RUN npm install --no-audit --no-fund puppeteer@latest \
+    && chown -R appuser:appuser /app/node_modules
 
 # Copy the converter script
 COPY scripts/convert-html-to-pdf.js /app/convert-html-to-pdf.js
-RUN chmod +x /app/convert-html-to-pdf.js
+RUN chmod +x /app/convert-html-to-pdf.js \
+    && chown appuser:appuser /app/convert-html-to-pdf.js
+
+# Switch to non-root user
+USER appuser
 
 ENTRYPOINT ["node", "/app/convert-html-to-pdf.js"]

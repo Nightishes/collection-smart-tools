@@ -19,12 +19,14 @@ All notable changes to this project will be documented in this file.
 #### 🔧 Technical Implementation
 
 **New Files:**
+
 - `src/app/pdf-modifier/components/ImageSlider.tsx`: Full-featured modal image viewer with multi-region support
 - `src/app/pdf-modifier/components/ImageSlider.module.css`: Responsive styles with animations and transitions
 - `src/app/pdf-modifier/utils/imageProcessor.ts`: Image processing utilities with flood-fill region detection
 - `documentation/MULTI-REGION-EXTRACTION.md`: Complete technical documentation
 
 **Enhanced Files:**
+
 - `src/lib/htmlModify.ts`: Added `ImageInfo` type and image extraction logic with size-based filtering
 - `src/lib/htmlModify.test.ts`: Added comprehensive tests for image extraction (5/5 passing)
 - `src/app/pdf-modifier/hooks/useHtmlModifier.ts`: Added `imageList` state management
@@ -35,6 +37,7 @@ All notable changes to this project will be documented in this file.
 #### 🚀 Algorithm Details
 
 **Flood-Fill Region Detection:**
+
 - Scans all pixels to find non-white content (configurable RGB threshold)
 - Groups connected pixels into separate regions using flood-fill algorithm
 - Filters out noise (minimum 1000 pixels per region)
@@ -42,6 +45,7 @@ All notable changes to this project will be documented in this file.
 - Adds 10px padding around each detected region
 
 **Image Extraction:**
+
 - Regex-based extraction of `<img>` tags: `/<img\b[^>]*\bsrc=(?:"([^"]*)"|'([^']*)'|([^\s>]+))[^>]*>/gi`
 - Background image extraction from `.bi` div elements
 - Size filtering to exclude full-page backgrounds
@@ -50,6 +54,7 @@ All notable changes to this project will be documented in this file.
 #### 📊 User Interface Features
 
 **ImageSlider Component:**
+
 - Dark overlay with centered modal (800px max width)
 - Navigation: Previous/Next buttons, arrow keys, Escape to close
 - Counter display: "Image 1/3" or "Image 1/3 · Region 2/4" for multi-region
@@ -62,6 +67,7 @@ All notable changes to this project will be documented in this file.
   - "✨ Background Removed" for single-region processed images
 
 **Download Naming Convention:**
+
 - Single region: `image-1-cropped.png`
 - Multiple regions: `image-1-region-2-cropped.png`
 - Original images: `image-1.png`
@@ -77,6 +83,7 @@ All notable changes to this project will be documented in this file.
 - Synchronized file size limits with environment variables across all endpoints
 
 **Modified Files:**
+
 - `next.config.ts`: Added proxyClientMaxBodySize configuration synced with env var
 - `src/lib/jwtAuth.ts`: Changed default from 200MB to 500MB
 - `src/app/api/upload/route.ts`: Extended maxDuration to 1200 seconds
@@ -96,7 +103,7 @@ All notable changes to this project will be documented in this file.
 
 ```typescript
 interface ImageInfo {
-  type: 'img' | 'div-background';
+  type: "img" | "div-background";
   src?: string;
   style?: string;
   className?: string;
@@ -114,13 +121,14 @@ interface ProcessedImageResult {
   regions: ImageRegion[];
   originalWidth: number;
   originalHeight: number;
-  croppedDataUrl?: string;  // Legacy support
+  croppedDataUrl?: string; // Legacy support
   croppedWidth?: number;
   croppedHeight?: number;
 }
 ```
 
 **Performance:**
+
 - Image processing: ~50-200ms per image (size-dependent)
 - On-demand processing when viewing each image
 - Results cached in Map to avoid reprocessing
