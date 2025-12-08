@@ -7,11 +7,20 @@ RUN apt-get update && apt-get install -y \
     pdf2htmlex \
     && rm -rf /var/lib/apt/lists/*
 
+# Copy compatibility.js - replace symlink with actual file
+COPY docker-assets/compatibility.js /usr/share/pdf.js/compatibility.js
+RUN rm -f /usr/share/pdf2htmlEX/compatibility.js && \
+    cp /usr/share/pdf.js/compatibility.js /usr/share/pdf2htmlEX/compatibility.js
+
 WORKDIR /pdf
 
 # Create non-root user for security
 RUN groupadd -r pdfuser && useradd -r -g pdfuser pdfuser \
-    && chown -R pdfuser:pdfuser /pdf
+    && chown -R pdfuser:pdfuser /pdf \
+    && chmod -R 755 /usr/share/pdf2htmlEX \
+    && chmod -R 755 /usr/share/pdf.js \
+    && chmod 644 /usr/share/pdf.js/compatibility.js \
+    && chmod 644 /usr/share/pdf2htmlEX/compatibility.js
 
 # Switch to non-root user
 USER pdfuser

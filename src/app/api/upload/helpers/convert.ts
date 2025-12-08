@@ -189,9 +189,7 @@ async function processHtmlImages(
  *
  * Returns { success, htmlPath } on success or { success: false, error } on failure.
  */
-export async function convertPdfToHtml(
-  inputPdfPath: string
-): Promise<
+export async function convertPdfToHtml(inputPdfPath: string): Promise<
   | {
       success: true;
       htmlPath: string;
@@ -257,7 +255,7 @@ export async function convertPdfToHtml(
           "--embed-image",
           "1", // Embed images
           "--embed-javascript",
-          "0", // Disable JS for security
+          "1", // Required for compatibility.js
           "--process-nontext",
           "1", // Process images and graphics
           "--correct-text-visibility",
