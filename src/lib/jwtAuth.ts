@@ -81,10 +81,14 @@ export function getAuthUser(req: Request): AuthUser {
 }
 
 /**
- * Get max file size based on auth status
+ * Get max file size for user
+ * Uses MAX_UPLOAD_SIZE_MB environment variable (default: 500MB for authenticated users)
  */
 export function getMaxFileSize(user: AuthUser): number {
-  return user.isAuthenticated ? 500 * 1024 * 1024 : 10 * 1024 * 1024;
+  const maxSizeMB = parseInt(process.env.MAX_UPLOAD_SIZE_MB || "500", 10);
+  const authenticatedSize = maxSizeMB * 1024 * 1024;
+  const anonymousSize = 10 * 1024 * 1024; // 10MB for unauthenticated
+  return user.isAuthenticated ? authenticatedSize : anonymousSize;
 }
 
 /**

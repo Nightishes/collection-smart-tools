@@ -45,12 +45,50 @@ describe("modifyHtml", () => {
   });
 
   it("removes data images when requested", () => {
-    const { modifiedHtml, imagesRemoved } = modifyHtml(sampleHtml, {
+    const { modifiedHtml, imagesRemoved, imageList } = modifyHtml(sampleHtml, {
       removeDataImages: true,
     });
     // data image should be removed comment
     expect(modifiedHtml).toContain("<!-- data-image removed -->");
     expect(imagesRemoved.length).toBeGreaterThan(0);
+    expect(Array.isArray(imageList)).toBe(true);
+  });
+
+  it("extracts image list from img tags and div backgrounds", () => {
+    const htmlWithImages = `<!doctype html>
+    <html>
+    <body>
+    <img src="data:image/png;base64,abc123" />
+    <img src="https://example.com/image.jpg" />
+    <div class="bi" style="width:100px;background-image:url(data:image/png;base64,xyz789);height:50px;"></div>
+    <div class="pc bi" style="width:100px;background-image:url('image.png');height:50px;"></div>
+    <div class="bi" style="width:1200px;background-image:url('fullpage.png');height:900px;"></div>
+    </body>
+    </html>`;
+
+    const { imageList } = modifyHtml(htmlWithImages);
+
+    // Should have 4 images: 2 img tags + 2 small div backgrounds
+    // The full-page background (1200x900) should be filtered out
+    expect(imageList.length).toBe(4);
+
+    const imgTags = imageList.filter((img) => img.type === "img");
+    const divBgs = imageList.filter((img) => img.type === "div-background");
+
+    expect(imgTags.length).toBe(2);
+    expect(divBgs.length).toBe(2);
+
+    expect(imgTags[0].src).toContain("data:image/png");
+    expect(imgTags[1].src).toBe("https://example.com/image.jpg");
+
+    expect(divBgs[0].className).toBe("bi");
+    expect(divBgs[1].className).toBe("pc bi");
+
+    // Verify the full-page background was filtered out
+    const hasFullPageBg = imageList.some((img) =>
+      img.src?.includes("fullpage.png")
+    );
+    expect(hasFullPageBg).toBe(false);
   });
 
   it("returns empty styleInfo when no fc/fs classes", () => {

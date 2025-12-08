@@ -49,7 +49,7 @@ export async function GET(req: Request) {
       ...result.headers,
     };
 
-    return new Response(result.data, { headers });
+    return new Response(result.data as BodyInit, { headers });
   } catch (err: any) {
     console.error("Error serving html", err?.message || err);
     return new Response(JSON.stringify({ error: "Not found" }), {

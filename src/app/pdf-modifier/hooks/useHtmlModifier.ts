@@ -6,6 +6,7 @@ import {
   deleteElement,
   insertElement,
   moveElement,
+  ImageInfo,
 } from "../../../lib/htmlModify";
 import { ModifyOptions, StyleInfo } from "../types";
 
@@ -17,6 +18,7 @@ export function useHtmlModifier() {
   const [contentVersion, setContentVersion] = useState<number>(0);
   const [selectedElement, setSelectedElement] = useState<number[] | null>(null);
   const [moveDistance, setMoveDistance] = useState<number>(10);
+  const [imageList, setImageList] = useState<ImageInfo[]>([]);
   const [styleInfo, setStyleInfo] = useState<StyleInfo>({
     fontColors: [],
     fontSizes: [],
@@ -27,10 +29,15 @@ export function useHtmlModifier() {
   const [options, setOptions] = useState<ModifyOptions>({
     bgColor: "#ffffff",
     removeDataImages: false,
+    reorganizeContainers: false,
   });
 
   // Work entirely in memory - only save to server on download
   const workingCopyCache = useRef<string | null>(null);
+
+  // Store both versions of HTML (original and reorganized)
+  const originalHtmlCache = useRef<string | null>(null);
+  const reorganizedHtmlCache = useRef<string | null>(null);
 
   // Get current working copy (always from memory cache)
   const getWorkingCopy = useCallback((): string | null => {
@@ -64,12 +71,19 @@ export function useHtmlModifier() {
   }, []);
 
   // Reorganize structure: merge full-page containers and move siblings inside them
+  // WARNING: This is experimental and may break some PDFs
   const reorganizeContainers = useCallback((html: string): string => {
+    console.log(
+      "⚠️ Container reorganization is EXPERIMENTAL and may break formatting"
+    );
+
     const parser = new DOMParser();
     const doc = parser.parseFromString(html, "text/html");
 
     // Process each .pc container separately
     const pcContainers = doc.querySelectorAll(".pc");
+
+    console.log(`Found ${pcContainers.length} .pc containers to process`);
 
     pcContainers.forEach((pc) => {
       // Find only DIRECT .c children of this .pc (not nested ones)
@@ -85,26 +99,31 @@ export function useHtmlModifier() {
       );
 
       // Unwrap ALL .c containers - move their children directly to .pc level
-      directCContainers.forEach((container) => {
+      directCContainers.forEach((container, idx) => {
         const classList = Array.from(container.classList);
         const hasX0 = classList.includes("x0");
 
+        console.log(
+          `    [${idx}] Processing .c container:`,
+          classList.join(" ")
+        );
+
         if (hasX0) {
           // .c.x0 - unwrap it (replace container with its children)
-          console.log("Unwrapping .c.x0:", container.classList.toString());
+          const childCount = container.children.length;
+          console.log(`      → Unwrapping .c.x0 (${childCount} children)`);
           const parent = container.parentElement;
           if (parent) {
             while (container.firstChild) {
               parent.insertBefore(container.firstChild, container);
             }
             container.remove();
+            console.log(`      ✓ Unwrapped successfully`);
           }
         } else {
           // .c with non-zero x position - keep dimensions but remove .c class
-          console.log(
-            "Processing .c with position:",
-            container.classList.toString()
-          );
+          const originalClasses = container.classList.toString();
+          console.log(`      → Modifying .c with non-zero position`);
 
           // Remove the 'c' class but keep all other classes (width, height, position)
           container.classList.remove("c");
@@ -112,9 +131,9 @@ export function useHtmlModifier() {
           // Set position absolute to maintain layout
           (container as HTMLElement).style.position = "absolute";
 
+          const newClasses = container.classList.toString();
           console.log(
-            "Removed .c class, added position absolute, keeping:",
-            container.classList.toString()
+            `      ✓ Removed .c class: "${originalClasses}" → "${newClasses}"`
           );
 
           // Check if it contains only spans for positioning
@@ -127,11 +146,16 @@ export function useHtmlModifier() {
 
           if (onlySpans && spans.length > 1) {
             // Position spans
+            console.log(`      → Repositioning ${spans.length} spans`);
             const containerWidth = (container as HTMLElement).offsetWidth;
             const spanWidth =
               spans.length > 0 ? (spans[0] as HTMLElement).offsetWidth : 0;
             const spacing =
               spanWidth > 0 ? containerWidth / (spanWidth * spans.length) : 0;
+
+            console.log(
+              `      → Span spacing: ${spacing}px (container: ${containerWidth}px, span: ${spanWidth}px)`
+            );
 
             spans.forEach((span, index) => {
               if (index > 0) {
@@ -140,6 +164,7 @@ export function useHtmlModifier() {
                 (span as HTMLElement).style.left = `${leftPosition}px`;
               }
             });
+            console.log(`      ✓ Spans repositioned`);
           }
         }
       });
@@ -186,7 +211,10 @@ export function useHtmlModifier() {
       }
     };
 
+    console.log("Running fixPositionClasses...");
     fixPositionClasses();
+
+    console.log("✅ Container reorganization complete");
 
     // Return the full document HTML to preserve <head> with styles
     return doc.documentElement.outerHTML || html;
@@ -200,10 +228,26 @@ export function useHtmlModifier() {
           `/api/upload/html?file=${encodeURIComponent(htmlName)}`
         );
         if (!res.ok) throw new Error("Failed to fetch HTML");
-        let text = await res.text();
+        const originalText = await res.text();
 
-        // Reorganize containers
-        text = reorganizeContainers(text);
+        // Store original version
+        originalHtmlCache.current = originalText;
+
+        // Create and store reorganized version
+        const reorganizedText = reorganizeContainers(originalText);
+        reorganizedHtmlCache.current = reorganizedText;
+
+        // Use the appropriate version based on current option
+        const text = options.reorganizeContainers
+          ? reorganizedText
+          : originalText;
+
+        // Reset both options to false when loading a new PDF
+        setOptions((prev) => ({
+          ...prev,
+          removeDataImages: false,
+          reorganizeContainers: false,
+        }));
 
         setOriginalHtml(text);
         setLastHtmlName(htmlName);
@@ -216,13 +260,17 @@ export function useHtmlModifier() {
         setHtmlContent(text);
         setModifiedHtml(text);
 
-        // Extract style info for the editor controls
-        const { styleInfo: newStyleInfo } = modifyHtml(text, {
-          ...options,
-          fcOverrides: fcOverrides,
-          fsOverrides: fsOverrides,
-        });
+        // Extract style info and image list for the editor controls
+        const { styleInfo: newStyleInfo, imageList: newImageList } = modifyHtml(
+          text,
+          {
+            ...options,
+            fcOverrides: fcOverrides,
+            fsOverrides: fsOverrides,
+          }
+        );
         setStyleInfo(newStyleInfo);
+        setImageList(newImageList);
         // initialize overrides from discovered styleInfo if not already present
         const initialFc: Record<string, string> = {};
         newStyleInfo.fontColors.forEach((fc) => {
@@ -245,6 +293,42 @@ export function useHtmlModifier() {
     key: K,
     value: ModifyOptions[K]
   ) => {
+    // Special handling for reorganizeContainers toggle
+    if (key === "reorganizeContainers") {
+      const confirmed = window.confirm(
+        "Toggling container reorganization will reset the iframe and lose any unsaved changes. Continue?"
+      );
+
+      if (!confirmed) {
+        return; // User cancelled
+      }
+
+      // Swap between cached versions
+      const newHtml = value
+        ? reorganizedHtmlCache.current
+        : originalHtmlCache.current;
+
+      if (newHtml) {
+        // Reset removeDataImages to false when toggling reorganization
+        setOptions({ ...options, [key]: value, removeDataImages: false });
+        setOriginalHtml(newHtml);
+        workingCopyCache.current = newHtml;
+        setHtmlContent(newHtml);
+        setModifiedHtml(newHtml);
+        setContentVersion((v) => v + 1);
+
+        // Re-extract style info
+        const { styleInfo: newStyleInfo } = modifyHtml(newHtml, {
+          ...options,
+          [key]: value,
+          fcOverrides,
+          fsOverrides,
+        });
+        setStyleInfo(newStyleInfo);
+        return;
+      }
+    }
+
     const newOptions = { ...options, [key]: value };
     setOptions(newOptions);
 
@@ -486,6 +570,7 @@ export function useHtmlModifier() {
     selectedElement,
     moveDistance,
     setMoveDistance,
+    imageList,
     styleInfo,
     options,
     fcOverrides,

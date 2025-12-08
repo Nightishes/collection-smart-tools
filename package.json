@@ -15,8 +15,10 @@
     "docker:logs": "docker-compose logs -f"
   },
   "dependencies": {
+    "@types/busboy": "^1.5.4",
     "@types/domhandler": "^2.4.5",
     "@types/redis": "^4.0.10",
+    "busboy": "^1.6.0",
     "cheerio": "^1.1.2",
     "clamscan": "^2.4.0",
     "css": "^3.0.0",
@@ -25,7 +27,7 @@
     "html-to-docx": "^1.8.0",
     "jsonwebtoken": "^9.0.2",
     "mammoth": "^1.11.0",
-    "next": "16.0.1",
+    "next": "^16.0.7",
     "pdf-parse": "^1.1.1",
     "react": "19.2.0",
     "react-dom": "19.2.0",
@@ -36,10 +38,10 @@
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
-    "baseline-browser-mapping": "^2.8.32",
+    "baseline-browser-mapping": "^2.9.2",
     "eslint": "^9",
     "eslint-config-next": "16.0.1",
     "typescript": "^5",
-    "vitest": "^1.3.0"
+    "vitest": "^4.0.15"
   }
 }

@@ -13,6 +13,12 @@ export default function middleware(request: NextRequest) {
     // Suggest compression for API responses
     response.headers.set("X-Content-Encoding-Hint", "gzip");
 
+    // For upload routes, add custom header to indicate large body support
+    if (request.nextUrl.pathname.startsWith("/api/upload")) {
+      const requestHeaders = new Headers(request.headers);
+      requestHeaders.set("x-upload-route", "true");
+    }
+
     // Add cache control for static conversions
     if (
       request.nextUrl.pathname.includes("/upload/html") ||

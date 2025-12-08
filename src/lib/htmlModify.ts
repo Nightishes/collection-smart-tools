@@ -18,9 +18,17 @@ export type ModifyOptions = {
   fsOverrides?: Record<string, string>;
 };
 
+export type ImageInfo = {
+  type: "img" | "div-background";
+  src?: string;
+  style?: string;
+  className?: string;
+};
+
 export type ModifyResult = {
   modifiedHtml: string;
   imagesRemoved: string[];
+  imageList: ImageInfo[];
   styleInfo: StyleInfo;
 };
 
@@ -116,7 +124,58 @@ export function modifyHtml(
   const { removeDataImages = false, bgColor = "#ffffff" } = opts;
 
   const imagesRemoved: string[] = [];
+  const imageList: ImageInfo[] = [];
   let modified = html;
+
+  // Extract all <img> tags (these are actual embedded images)
+  const imgRegex = /<img\b[^>]*\bsrc=(?:"([^"]*)"|'([^']*)'|([^\s>]+))[^>]*>/gi;
+  let imgMatch;
+  while ((imgMatch = imgRegex.exec(html)) !== null) {
+    const src = imgMatch[1] || imgMatch[2] || imgMatch[3];
+    if (src) {
+      imageList.push({
+        type: "img",
+        src: src,
+      });
+    }
+  }
+
+  // Extract div elements with background-image, but filter out full-page backgrounds
+  // pdf2htmlEX uses .bi class for background images, but we want to exclude page-wide ones
+  const divBgRegex =
+    /<div\b[^>]*\bclass="[^"]*\bbi\b[^"]*"[^>]*\bstyle="([^"]*)"/gi;
+  let divMatch;
+  while ((divMatch = divBgRegex.exec(html)) !== null) {
+    const fullMatch = divMatch[0];
+    const style = divMatch[1];
+    const bgImageMatch = style.match(/background-image:\s*url\(([^)]+)\)/);
+
+    if (bgImageMatch) {
+      const className = fullMatch.match(/class="([^"]*)"/)?.[1];
+
+      // Try to extract width and height from style to filter out full-page backgrounds
+      const widthMatch = style.match(/width:\s*([0-9.]+)px/);
+      const heightMatch = style.match(/height:\s*([0-9.]+)px/);
+      const width = widthMatch ? parseFloat(widthMatch[1]) : 0;
+      const height = heightMatch ? parseFloat(heightMatch[1]) : 0;
+
+      // Filter criteria:
+      // 1. Skip if dimensions suggest it's a full page (typical PDF page is 612x792px or larger)
+      // 2. Skip if it has very large dimensions (> 1000px in either dimension)
+      // 3. Keep if it's a reasonably sized image (typical embedded images are < 800px)
+      const isFullPageBackground =
+        width > 1000 || height > 1000 || (width > 500 && height > 700);
+
+      if (!isFullPageBackground) {
+        imageList.push({
+          type: "div-background",
+          src: bgImageMatch[1].replace(/['"]|^data:/g, ""),
+          style: style,
+          className: className,
+        });
+      }
+    }
+  }
 
   if (removeDataImages) {
     // find and remove <img> tags with data: URIs
@@ -257,7 +316,7 @@ export function modifyHtml(
     })),
   };
 
-  return { modifiedHtml: modified, imagesRemoved, styleInfo };
+  return { modifiedHtml: modified, imagesRemoved, imageList, styleInfo };
 }
 
 /**

@@ -1,10 +1,11 @@
 ﻿"use client";
 
-import { useRef, useEffect } from "react";
+import { useRef, useEffect, useState } from "react";
 import { useFileUpload } from "./hooks/useFileUpload";
 import { useHtmlModifier } from "./hooks/useHtmlModifier";
 import { UploadArea, FileList } from "./components/UploadComponents";
 import { EditorControls } from "./components/EditorControls";
+import { ImageSlider } from "./components/ImageSlider";
 import { useAuth } from "../context/AuthContext";
 import { handleDownload, DownloadFormat } from "./utils/downloadHandlers";
 import {
@@ -17,6 +18,7 @@ import styles from "./page.module.css";
 export default function PageModifyHtml() {
   const { isAdmin } = useAuth();
   const inputRef = useRef<HTMLInputElement | null>(null);
+  const [isImageSliderOpen, setIsImageSliderOpen] = useState(false);
   const {
     lastHtmlName,
     htmlContent,
@@ -25,6 +27,7 @@ export default function PageModifyHtml() {
     selectedElement,
     moveDistance,
     setMoveDistance,
+    imageList,
     styleInfo,
     options,
     updateOption,
@@ -258,6 +261,8 @@ export default function PageModifyHtml() {
               onMoveDown={() => moveElementDirection("down")}
               onMoveLeft={() => moveElementDirection("left")}
               onMoveRight={() => moveElementDirection("right")}
+              imageCount={imageList.length}
+              onShowImages={() => setIsImageSliderOpen(true)}
             />
 
             <div
@@ -305,6 +310,12 @@ export default function PageModifyHtml() {
           </section>
         )}
       </main>
+
+      <ImageSlider
+        images={imageList}
+        isOpen={isImageSliderOpen}
+        onClose={() => setIsImageSliderOpen(false)}
+      />
     </div>
   );
 }

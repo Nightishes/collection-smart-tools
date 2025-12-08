@@ -42,6 +42,8 @@ type EditorControlsProps = {
   onSave?: () => void; // Reserved for future use
   onClear: () => void;
   isAdmin?: boolean;
+  imageCount?: number;
+  onShowImages?: () => void;
 };
 
 export function EditorControls({
@@ -65,6 +67,8 @@ export function EditorControls({
   // onSave is reserved for future use
   onClear,
   isAdmin = false,
+  imageCount = 0,
+  onShowImages,
 }: EditorControlsProps) {
   return (
     <>
@@ -86,8 +90,27 @@ export function EditorControls({
               onOptionChange("removeDataImages", e.target.checked)
             }
           />
-          Remove embedded data: images (data:image/*)
+          Remove embedded images
         </label>
+        <label className={styles.controlLabel}>
+          <input
+            type="checkbox"
+            checked={options.reorganizeContainers || false}
+            onChange={(e) =>
+              onOptionChange("reorganizeContainers", e.target.checked)
+            }
+          />
+          Reorganize containers (experimental - may break some PDFs)
+        </label>
+        {imageCount > 0 && (
+          <button
+            className={styles.showImagesButton}
+            onClick={onShowImages}
+            type="button"
+          >
+            📷 Show Images ({imageCount})
+          </button>
+        )}
       </div>
 
       {/* Main Control Sections */}

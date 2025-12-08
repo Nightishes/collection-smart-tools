@@ -10,3 +10,5 @@ export { MovementControls } from "./MovementControls";
 export { DownloadControls } from "./DownloadControls";
 export { TextInsertionControls } from "./TextInsertionControls";
 export { UploadArea, FileList } from "./UploadComponents";
+export { ImageSlider } from "./ImageSlider";
+export type { ImageInfo } from "./ImageSlider";
