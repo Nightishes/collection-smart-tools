@@ -3,7 +3,7 @@ version: "3.8"
 services:
   # ClamAV antivirus daemon
   clamav:
-    image: clamav/clamav:latest
+    image: clamav/clamav:1.3.0  # Pinned version for security
     container_name: collection-tools-clamav
     user: "clamav:clamav"
     ports:
@@ -32,7 +32,7 @@ services:
 
   # Redis cache for improved performance
   redis:
-    image: redis:7-alpine
+    image: redis:7.2.3-alpine  # Pinned version for security
     container_name: collection-tools-redis
     user: "redis:redis"
     ports:
@@ -61,6 +61,13 @@ services:
 networks:
   collection-tools:
     driver: bridge
+    ipam:
+      config:
+        - subnet: 172.28.0.0/16
+    driver_opts:
+      com.docker.network.bridge.name: collection-tools-bridge
+      com.docker.network.bridge.enable_icc: "true"
+      com.docker.network.bridge.enable_ip_masquerade: "true"
 
 volumes:
   clamav-data:
