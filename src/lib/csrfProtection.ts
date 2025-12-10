@@ -3,8 +3,8 @@
  * Implements double-submit cookie pattern for CSRF protection
  */
 
-import { createHash, randomBytes } from 'crypto';
-import { NextRequest } from 'next/server';
+import { createHash, randomBytes } from "crypto";
+import { NextRequest } from "next/server";
 
 interface CSRFToken {
   token: string;
@@ -16,22 +16,25 @@ interface CSRFToken {
 const csrfTokens = new Map<string, CSRFToken>();
 
 const CSRF_TOKEN_EXPIRY = 60 * 60 * 1000; // 1 hour
-const CSRF_COOKIE_NAME = 'csrf-token';
-const CSRF_HEADER_NAME = 'x-csrf-token';
+const CSRF_COOKIE_NAME = "csrf-token";
+const CSRF_HEADER_NAME = "x-csrf-token";
 
 /**
  * Generate a CSRF token
  */
-export function generateCSRFToken(userId?: string): { token: string; hash: string } {
-  const token = randomBytes(32).toString('hex');
-  const hash = createHash('sha256')
-    .update(token + (userId || 'anonymous'))
-    .digest('hex');
+export function generateCSRFToken(userId?: string): {
+  token: string;
+  hash: string;
+} {
+  const token = randomBytes(32).toString("hex");
+  const hash = createHash("sha256")
+    .update(token + (userId || "anonymous"))
+    .digest("hex");
 
   const csrfData: CSRFToken = {
     token,
     hash,
-    expiresAt: Date.now() + CSRF_TOKEN_EXPIRY
+    expiresAt: Date.now() + CSRF_TOKEN_EXPIRY,
   };
 
   csrfTokens.set(hash, csrfData);
@@ -48,33 +51,33 @@ export function validateCSRFToken(
   userId?: string
 ): boolean {
   if (!cookieToken || !headerToken) {
-    console.warn('[CSRF] Missing token in cookie or header');
+    console.warn("[CSRF] Missing token in cookie or header");
     return false;
   }
 
   // Generate hash from cookie token
-  const hash = createHash('sha256')
-    .update(cookieToken + (userId || 'anonymous'))
-    .digest('hex');
+  const hash = createHash("sha256")
+    .update(cookieToken + (userId || "anonymous"))
+    .digest("hex");
 
   // Retrieve stored token
   const storedToken = csrfTokens.get(hash);
 
   if (!storedToken) {
-    console.warn('[CSRF] Token not found in store');
+    console.warn("[CSRF] Token not found in store");
     return false;
   }
 
   // Check expiry
   if (Date.now() > storedToken.expiresAt) {
     csrfTokens.delete(hash);
-    console.warn('[CSRF] Token expired');
+    console.warn("[CSRF] Token expired");
     return false;
   }
 
   // Validate that header token matches cookie token
   if (cookieToken !== headerToken) {
-    console.warn('[CSRF] Token mismatch between cookie and header');
+    console.warn("[CSRF] Token mismatch between cookie and header");
     return false;
   }
 
@@ -104,7 +107,7 @@ export function cleanupExpiredTokens(): void {
       csrfTokens.delete(hash);
     }
   }
-  console.log(`[CSRF] Cleaned up expired tokens. Active tokens: ${csrfTokens.size}`);
+  // Tokens cleaned up
 }
 
 /**
@@ -114,7 +117,7 @@ export function requireCSRF(request: NextRequest, userId?: string): boolean {
   const method = request.method;
 
   // Only validate for state-changing methods
-  if (!['POST', 'PUT', 'DELETE', 'PATCH'].includes(method)) {
+  if (!["POST", "PUT", "DELETE", "PATCH"].includes(method)) {
     return true;
   }
 
@@ -129,7 +132,7 @@ export function getCSRFConfig() {
   return {
     cookieName: CSRF_COOKIE_NAME,
     headerName: CSRF_HEADER_NAME,
-    expiryMs: CSRF_TOKEN_EXPIRY
+    expiryMs: CSRF_TOKEN_EXPIRY,
   };
 }
 

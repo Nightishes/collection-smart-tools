@@ -9,6 +9,7 @@ This document outlines all security enhancements implemented in the Collection S
 **Location:** `.github/workflows/security.yml`
 
 Automated security scanning pipeline that runs on:
+
 - Every push to master/main branch
 - Pull requests
 - Weekly schedule (Monday 9 AM UTC)
@@ -16,25 +17,30 @@ Automated security scanning pipeline that runs on:
 **Scan Types:**
 
 #### NPM Audit
+
 - Scans for vulnerable npm dependencies
 - Generates audit reports
 - Continues build even with moderate vulnerabilities (allows review)
 
 #### Docker Security Scanning (Trivy)
+
 - Scans both `pdf2html` and `puppeteer` Docker images
 - Checks for CRITICAL and HIGH severity vulnerabilities
 - Uploads results to GitHub Security tab (SARIF format)
 
 #### CodeQL Analysis
+
 - Static code analysis for JavaScript/TypeScript
 - Identifies security vulnerabilities and code quality issues
 - Results available in GitHub Security tab
 
 #### Docker Bench Security
+
 - Runs CIS Docker Benchmark tests
 - Checks Docker daemon and container security configurations
 
 #### Secret Scanning (TruffleHog)
+
 - Scans entire repository for exposed secrets
 - Checks commit history
 - Only reports verified secrets
@@ -46,10 +52,11 @@ Automated security scanning pipeline that runs on:
 Automated dependency updates with Dependabot:
 
 - **NPM packages:** Weekly updates on Monday
-- **Docker images:** Weekly updates on Monday  
+- **Docker images:** Weekly updates on Monday
 - **GitHub Actions:** Weekly updates on Monday
 
 **Features:**
+
 - Groups minor/patch updates to reduce PR noise
 - Separates development and production dependencies
 - Prioritizes security patches with increased priority versioning
@@ -61,12 +68,14 @@ Automated dependency updates with Dependabot:
 Comprehensive file validation system with:
 
 #### MIME Type Validation
+
 - ✅ Validates both declared MIME type and magic number (file signature)
 - ✅ Supported types: PDF, DOCX, DOC, HTML, TXT
 - ✅ Extension matching verification
 - ✅ Prevents MIME type spoofing
 
 #### Malicious Filename Detection
+
 - ✅ Directory traversal attempts (`../`)
 - ✅ Null bytes and invalid characters
 - ✅ Executable extensions (.exe, .bat, .cmd, .scr, etc.)
@@ -75,20 +84,23 @@ Comprehensive file validation system with:
 - ✅ Maximum filename length (255 chars)
 
 #### File Quarantine System
+
 - ✅ All uploads quarantined before virus scanning
 - ✅ SHA-256 hash-based unique naming
 - ✅ Separate quarantine directory structure
 - ✅ Released only after successful scan
 
 #### Rate Limiting
+
 - ✅ Per-user upload limits (default: 50 uploads/hour)
 - ✅ In-memory tracking with automatic cleanup
 - ✅ Configurable via `MAX_UPLOADS_PER_HOUR` env var
 - ✅ Graceful degradation with reset time display
 
 **Usage Example:**
+
 ```typescript
-import { validateUploadedFile } from '@/lib/fileValidation';
+import { validateUploadedFile } from "@/lib/fileValidation";
 
 const result = await validateUploadedFile(
   filePath,
@@ -99,7 +111,7 @@ const result = await validateUploadedFile(
 );
 
 if (!result.valid) {
-  console.error('Validation failed:', result.error);
+  console.error("Validation failed:", result.error);
   return;
 }
 
@@ -112,23 +124,26 @@ if (!result.valid) {
 **Locations:** `docker-compose.yml`, `Dockerfile.puppeteer`, `Dockerfile.pdf2html`
 
 #### Version Pinning
+
 - ✅ ClamAV: `clamav/clamav:1.3.0` (was `latest`)
 - ✅ Redis: `redis:7.2.3-alpine` (was `7-alpine`)
 - ✅ Node.js: `node:20.10.0-bullseye-slim` (was `20-bullseye-slim`)
 
 #### Security Options
+
 ```yaml
 security_opt:
   - no-new-privileges:true
 cap_drop:
   - ALL
-cap_add:  # Only required capabilities
+cap_add: # Only required capabilities
   - CHOWN
   - SETGID
   - SETUID
 ```
 
 #### Non-Root Users
+
 - ✅ ClamAV runs as `clamav:clamav`
 - ✅ Redis runs as `redis:redis`
 - ✅ Puppeteer runs as `appuser`
@@ -139,18 +154,21 @@ cap_add:  # Only required capabilities
 **Location:** `docker-compose.yml`
 
 #### Isolated Bridge Network
+
 - Custom subnet: `172.28.0.0/16`
 - Named bridge: `collection-tools-bridge`
 - Inter-container communication: enabled (required for service communication)
 - IP masquerading: enabled
 
 #### Port Exposure
+
 - Only necessary ports exposed to host
 - ClamAV: 3310
 - Redis: 6379
 - No unnecessary public exposure
 
 #### Healthchecks
+
 - ClamAV: 60s interval, 300s startup grace period
 - Redis: 30s interval, quick ping checks
 
@@ -161,6 +179,7 @@ cap_add:  # Only required capabilities
 Comprehensive security event logging system:
 
 #### Event Types (14 categories)
+
 - `AUTH_FAILURE` - Failed login attempts
 - `VIRUS_DETECTED` - Malware found in uploads
 - `RATE_LIMIT_EXCEEDED` - Too many requests
@@ -177,12 +196,14 @@ Comprehensive security event logging system:
 - `LARGE_FILE_UPLOAD` - Unusually large uploads
 
 #### Severity Levels
+
 - `INFO` - Normal operations
 - `WARNING` - Potential issues
 - `ERROR` - Failed operations
 - `CRITICAL` - Security incidents requiring immediate attention
 
 #### Features
+
 - ✅ JSON-formatted log files (one per day)
 - ✅ Automatic log rotation
 - ✅ Configurable retention (default: 90 days)
@@ -193,7 +214,9 @@ Comprehensive security event logging system:
 - ✅ Security report generation
 
 #### Alert Integration
+
 Configure webhook URL in `.env`:
+
 ```env
 SECURITY_ALERT_WEBHOOK=https://hooks.slack.com/services/YOUR/WEBHOOK/URL
 ```
@@ -201,14 +224,19 @@ SECURITY_ALERT_WEBHOOK=https://hooks.slack.com/services/YOUR/WEBHOOK/URL
 Supports: Slack, Discord, Microsoft Teams, custom webhooks
 
 **Usage Example:**
+
 ```typescript
-import { logSecurityEvent, SecurityEventType, SecuritySeverity } from '@/lib/securityLogger';
+import {
+  logSecurityEvent,
+  SecurityEventType,
+  SecuritySeverity,
+} from "@/lib/securityLogger";
 
 await logSecurityEvent(
   SecurityEventType.VIRUS_DETECTED,
   SecuritySeverity.CRITICAL,
-  'Malware found in uploaded file',
-  { filename: 'malicious.pdf', virusName: 'Trojan.Generic' },
+  "Malware found in uploaded file",
+  { filename: "malicious.pdf", virusName: "Trojan.Generic" },
   userId,
   ipAddress,
   userAgent
@@ -216,6 +244,7 @@ await logSecurityEvent(
 ```
 
 #### Automatic Blocking
+
 - IPs with 10+ suspicious events are flagged for blocking
 - Users with 5+ failed auth attempts are flagged for locking
 - Metrics available via `getSecurityMetrics()`
@@ -227,6 +256,7 @@ await logSecurityEvent(
 Double-submit cookie pattern implementation:
 
 #### Features
+
 - ✅ Cryptographically secure token generation (32 bytes)
 - ✅ SHA-256 hashing for storage
 - ✅ HTTP-only cookies (not accessible via JavaScript)
@@ -236,7 +266,9 @@ Double-submit cookie pattern implementation:
 - ✅ Per-user token binding
 
 #### Protected Methods
+
 Automatically validates CSRF for:
+
 - POST requests
 - PUT requests
 - DELETE requests
@@ -247,35 +279,35 @@ GET requests are not validated (safe by design)
 #### Client-Side Usage
 
 **1. Fetch CSRF Token:**
+
 ```typescript
-const response = await fetch('/api/csrf-token');
+const response = await fetch("/api/csrf-token");
 const { csrfToken, headerName } = await response.json();
 ```
 
 **2. Include in Requests:**
+
 ```typescript
-await fetch('/api/upload', {
-  method: 'POST',
+await fetch("/api/upload", {
+  method: "POST",
   headers: {
-    'x-csrf-token': csrfToken
+    "x-csrf-token": csrfToken,
   },
   body: formData,
-  credentials: 'include' // Include cookies
+  credentials: "include", // Include cookies
 });
 ```
 
 #### Server-Side Validation
+
 ```typescript
-import { requireCSRF } from '@/lib/csrfProtection';
+import { requireCSRF } from "@/lib/csrfProtection";
 
 export async function POST(request: NextRequest) {
   if (!requireCSRF(request, userId)) {
-    return NextResponse.json(
-      { error: 'Invalid CSRF token' },
-      { status: 403 }
-    );
+    return NextResponse.json({ error: "Invalid CSRF token" }, { status: 403 });
   }
-  
+
   // Process request...
 }
 ```
@@ -308,11 +340,13 @@ MAX_UPLOAD_SIZE_MB=500
 When updating pinned versions:
 
 1. Check for new releases:
+
    - ClamAV: https://hub.docker.com/r/clamav/clamav/tags
    - Redis: https://hub.docker.com/_/redis/tags
    - Node.js: https://hub.docker.com/_/node/tags
 
 2. Update in respective files:
+
    - `docker-compose.yml` for ClamAV and Redis
    - `Dockerfile.puppeteer` for Node.js base image
 
@@ -339,6 +373,7 @@ When updating pinned versions:
 ### Incident Response
 
 1. **Critical Alert Received:**
+
    - Investigate immediately
    - Check security logs for context
    - Identify affected users/IPs
@@ -355,6 +390,7 @@ When updating pinned versions:
 ### Monitoring
 
 Set up alerts for:
+
 - 5+ failed login attempts from same user
 - 10+ suspicious events from same IP
 - Any CRITICAL severity events
@@ -364,6 +400,7 @@ Set up alerts for:
 ## Testing
 
 ### CI/CD Pipeline
+
 ```bash
 # Manually trigger security scans
 git push origin master
@@ -375,22 +412,26 @@ git push origin master
 ### Local Testing
 
 **File Validation:**
+
 ```bash
 npm test src/lib/fileValidation.test.ts
 ```
 
 **Docker Security:**
+
 ```bash
 npm run docker:test
 ```
 
 **Dependency Audit:**
+
 ```bash
 npm audit
 npm audit --audit-level=high
 ```
 
 **Docker Image Scanning:**
+
 ```bash
 docker scan pdf2html:latest
 docker scan puppeteer:latest
@@ -399,6 +440,7 @@ docker scan puppeteer:latest
 ## Compliance
 
 These security enhancements help meet:
+
 - ✅ OWASP Top 10 requirements
 - ✅ CIS Docker Benchmark standards
 - ✅ GDPR data protection requirements
@@ -408,6 +450,7 @@ These security enhancements help meet:
 ## Support
 
 For security issues, contact:
+
 - Email: [Your security contact]
 - Private GitHub Issues (Security advisories)
 - Security mailing list

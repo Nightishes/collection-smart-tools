@@ -7,7 +7,7 @@ on:
     branches: [master, main]
   schedule:
     # Run weekly on Monday at 9 AM UTC
-    - cron: '0 9 * * 1'
+    - cron: "0 9 * * 1"
 
 jobs:
   dependency-audit:
@@ -15,23 +15,23 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
-          
+          node-version: "20"
+
       - name: Install dependencies
         run: npm ci
-        
+
       - name: Run npm audit
         run: npm audit --audit-level=moderate
         continue-on-error: true
-        
+
       - name: Generate audit report
         run: npm audit --json > audit-report.json
         continue-on-error: true
-        
+
       - name: Upload audit report
         uses: actions/upload-artifact@v4
         with:
@@ -43,32 +43,32 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      
+
       - name: Build Docker images
         run: |
           docker build -f Dockerfile.pdf2html -t pdf2html:test .
           docker build -f Dockerfile.puppeteer -t puppeteer:test .
-      
+
       - name: Run Trivy vulnerability scanner on pdf2html
         uses: aquasecurity/trivy-action@master
         with:
-          image-ref: 'pdf2html:test'
-          format: 'sarif'
-          output: 'trivy-pdf2html-results.sarif'
-          severity: 'CRITICAL,HIGH'
-          
+          image-ref: "pdf2html:test"
+          format: "sarif"
+          output: "trivy-pdf2html-results.sarif"
+          severity: "CRITICAL,HIGH"
+
       - name: Run Trivy vulnerability scanner on puppeteer
         uses: aquasecurity/trivy-action@master
         with:
-          image-ref: 'puppeteer:test'
-          format: 'sarif'
-          output: 'trivy-puppeteer-results.sarif'
-          severity: 'CRITICAL,HIGH'
-          
+          image-ref: "puppeteer:test"
+          format: "sarif"
+          output: "trivy-puppeteer-results.sarif"
+          severity: "CRITICAL,HIGH"
+
       - name: Upload Trivy scan results
         uses: github/codeql-action/upload-sarif@v3
         with:
-          sarif_file: '.'
+          sarif_file: "."
 
   codeql-analysis:
     name: CodeQL Analysis
@@ -77,19 +77,19 @@ jobs:
       security-events: write
       actions: read
       contents: read
-    
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-        
+
       - name: Initialize CodeQL
         uses: github/codeql-action/init@v3
         with:
           languages: javascript-typescript
-          
+
       - name: Autobuild
         uses: github/codeql-action/autobuild@v3
-        
+
       - name: Perform CodeQL Analysis
         uses: github/codeql-action/analyze@v3
 
@@ -98,7 +98,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      
+
       - name: Run Docker Bench Security
         run: |
           docker run --rm --net host --pid host --userns host --cap-add audit_control \
@@ -118,7 +118,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          
+
       - name: TruffleHog OSS
         uses: trufflesecurity/trufflehog@main
         with:

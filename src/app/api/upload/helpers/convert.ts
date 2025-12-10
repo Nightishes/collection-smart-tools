@@ -223,9 +223,7 @@ export async function convertPdfToHtml(inputPdfPath: string): Promise<
 
     // Use Docker for pdf2htmlEX conversion with enhanced formatting options
     try {
-      console.log("Converting PDF to HTML using pdf2htmlEX...");
-      console.log(`Input: ${inputAbs}`);
-      console.log(`Output: ${outHtml}`);
+      // Converting PDF to HTML
 
       // Run pdf2htmlEX in Docker with optimized parameters for better formatting
       const { stdout, stderr } = await execFile(
@@ -279,9 +277,7 @@ export async function convertPdfToHtml(inputPdfPath: string): Promise<
         }
       );
 
-      console.log("pdf2htmlEX conversion completed successfully");
-      if (stdout) console.log("pdf2htmlEX stdout:", stdout);
-      if (stderr) console.log("pdf2htmlEX stderr:", stderr);
+      // Conversion completed successfully
 
       // Check if the HTML file was created
       try {

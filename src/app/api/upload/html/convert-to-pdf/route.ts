@@ -54,15 +54,14 @@ export async function POST(req: Request) {
     }
 
     // Log first part of HTML for debugging
-    console.log("convert-to-pdf: Received HTML length:", html.length);
+    // Processing HTML for conversion
 
     // Extract sample .y class definitions to verify positioning changes
     const yClassMatches = html.match(
       /\.y[0-9a-f]*\{[^}]*(?:top|bottom):[^}]*\}/gi
     );
     if (yClassMatches && yClassMatches.length > 0) {
-      console.log("convert-to-pdf: Sample .y class definitions (first 10):");
-      yClassMatches.slice(0, 10).forEach((match) => console.log("  ", match));
+      // Processing Y-axis positioning
     }
 
     // Sanitize HTML to prevent XSS, but preserve pdf2htmlEX content (including data URI images)

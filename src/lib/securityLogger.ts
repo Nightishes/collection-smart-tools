@@ -3,31 +3,31 @@
  * Provides comprehensive security event logging and alerting
  */
 
-import { promises as fs } from 'fs';
-import path from 'path';
+import { promises as fs } from "fs";
+import path from "path";
 
 export enum SecurityEventType {
-  AUTH_FAILURE = 'AUTH_FAILURE',
-  VIRUS_DETECTED = 'VIRUS_DETECTED',
-  RATE_LIMIT_EXCEEDED = 'RATE_LIMIT_EXCEEDED',
-  INVALID_FILE_TYPE = 'INVALID_FILE_TYPE',
-  MALICIOUS_FILENAME = 'MALICIOUS_FILENAME',
-  SUSPICIOUS_ACTIVITY = 'SUSPICIOUS_ACTIVITY',
-  FILE_QUARANTINED = 'FILE_QUARANTINED',
-  DOCKER_SECURITY_EVENT = 'DOCKER_SECURITY_EVENT',
-  XSS_ATTEMPT = 'XSS_ATTEMPT',
-  SQL_INJECTION_ATTEMPT = 'SQL_INJECTION_ATTEMPT',
-  CSRF_VALIDATION_FAILED = 'CSRF_VALIDATION_FAILED',
-  UNAUTHORIZED_ACCESS = 'UNAUTHORIZED_ACCESS',
-  FILE_SCAN_FAILED = 'FILE_SCAN_FAILED',
-  LARGE_FILE_UPLOAD = 'LARGE_FILE_UPLOAD'
+  AUTH_FAILURE = "AUTH_FAILURE",
+  VIRUS_DETECTED = "VIRUS_DETECTED",
+  RATE_LIMIT_EXCEEDED = "RATE_LIMIT_EXCEEDED",
+  INVALID_FILE_TYPE = "INVALID_FILE_TYPE",
+  MALICIOUS_FILENAME = "MALICIOUS_FILENAME",
+  SUSPICIOUS_ACTIVITY = "SUSPICIOUS_ACTIVITY",
+  FILE_QUARANTINED = "FILE_QUARANTINED",
+  DOCKER_SECURITY_EVENT = "DOCKER_SECURITY_EVENT",
+  XSS_ATTEMPT = "XSS_ATTEMPT",
+  SQL_INJECTION_ATTEMPT = "SQL_INJECTION_ATTEMPT",
+  CSRF_VALIDATION_FAILED = "CSRF_VALIDATION_FAILED",
+  UNAUTHORIZED_ACCESS = "UNAUTHORIZED_ACCESS",
+  FILE_SCAN_FAILED = "FILE_SCAN_FAILED",
+  LARGE_FILE_UPLOAD = "LARGE_FILE_UPLOAD",
 }
 
 export enum SecuritySeverity {
-  INFO = 'INFO',
-  WARNING = 'WARNING',
-  ERROR = 'ERROR',
-  CRITICAL = 'CRITICAL'
+  INFO = "INFO",
+  WARNING = "WARNING",
+  ERROR = "ERROR",
+  CRITICAL = "CRITICAL",
 }
 
 interface SecurityEvent {
@@ -53,13 +53,13 @@ class SecurityLogger {
   private alertWebhook?: string;
   private retentionDays: number;
 
-  constructor(logDir: string = './logs/security', retentionDays: number = 90) {
+  constructor(logDir: string = "./logs/security", retentionDays: number = 90) {
     this.logDir = logDir;
     this.retentionDays = retentionDays;
     this.metrics = {
       eventCounts: {} as Record<SecurityEventType, number>,
       suspiciousIPs: new Map(),
-      failedAuthAttempts: new Map()
+      failedAuthAttempts: new Map(),
     };
     this.alertWebhook = process.env.SECURITY_ALERT_WEBHOOK;
     this.initializeLogger();
@@ -69,11 +69,11 @@ class SecurityLogger {
     try {
       await fs.mkdir(this.logDir, { recursive: true });
       console.log(`[SecurityLogger] Initialized at ${this.logDir}`);
-      
+
       // Start periodic cleanup
       setInterval(() => this.cleanupOldLogs(), 24 * 60 * 60 * 1000); // Daily
     } catch (error) {
-      console.error('[SecurityLogger] Initialization error:', error);
+      console.error("[SecurityLogger] Initialization error:", error);
     }
   }
 
@@ -97,7 +97,7 @@ class SecurityLogger {
       ip,
       userAgent,
       details,
-      message
+      message,
     };
 
     // Update metrics
@@ -107,14 +107,22 @@ class SecurityLogger {
     await this.writeToFile(event);
 
     // Send alerts for critical events
-    if (severity === SecuritySeverity.CRITICAL || severity === SecuritySeverity.ERROR) {
+    if (
+      severity === SecuritySeverity.CRITICAL ||
+      severity === SecuritySeverity.ERROR
+    ) {
       await this.sendAlert(event);
     }
 
     // Console output for monitoring
-    const logLevel = severity === SecuritySeverity.CRITICAL ? 'error' : 
-                     severity === SecuritySeverity.ERROR ? 'error' : 
-                     severity === SecuritySeverity.WARNING ? 'warn' : 'info';
+    const logLevel =
+      severity === SecuritySeverity.CRITICAL
+        ? "error"
+        : severity === SecuritySeverity.ERROR
+        ? "error"
+        : severity === SecuritySeverity.WARNING
+        ? "warn"
+        : "info";
     console[logLevel](`[Security:${type}] ${message}`, details);
   }
 
@@ -123,7 +131,7 @@ class SecurityLogger {
    */
   private updateMetrics(event: SecurityEvent): void {
     // Event counts
-    this.metrics.eventCounts[event.type] = 
+    this.metrics.eventCounts[event.type] =
       (this.metrics.eventCounts[event.type] || 0) + 1;
 
     // Track suspicious IPs
@@ -134,7 +142,8 @@ class SecurityLogger {
 
     // Track failed auth attempts
     if (event.type === SecurityEventType.AUTH_FAILURE && event.userId) {
-      const count = (this.metrics.failedAuthAttempts.get(event.userId) || 0) + 1;
+      const count =
+        (this.metrics.failedAuthAttempts.get(event.userId) || 0) + 1;
       this.metrics.failedAuthAttempts.set(event.userId, count);
     }
   }
@@ -148,7 +157,7 @@ class SecurityLogger {
       SecurityEventType.XSS_ATTEMPT,
       SecurityEventType.SQL_INJECTION_ATTEMPT,
       SecurityEventType.MALICIOUS_FILENAME,
-      SecurityEventType.RATE_LIMIT_EXCEEDED
+      SecurityEventType.RATE_LIMIT_EXCEEDED,
     ].includes(type);
   }
 
@@ -157,13 +166,13 @@ class SecurityLogger {
    */
   private async writeToFile(event: SecurityEvent): Promise<void> {
     try {
-      const date = new Date().toISOString().split('T')[0];
+      const date = new Date().toISOString().split("T")[0];
       const logFile = path.join(this.logDir, `security-${date}.log`);
-      
-      const logEntry = JSON.stringify(event) + '\n';
-      await fs.appendFile(logFile, logEntry, 'utf8');
+
+      const logEntry = JSON.stringify(event) + "\n";
+      await fs.appendFile(logFile, logEntry, "utf8");
     } catch (error) {
-      console.error('[SecurityLogger] Write error:', error);
+      console.error("[SecurityLogger] Write error:", error);
     }
   }
 
@@ -180,26 +189,29 @@ class SecurityLogger {
         text: `🚨 Security Alert: ${event.type}`,
         attachments: [
           {
-            color: event.severity === SecuritySeverity.CRITICAL ? 'danger' : 'warning',
+            color:
+              event.severity === SecuritySeverity.CRITICAL
+                ? "danger"
+                : "warning",
             fields: [
-              { title: 'Severity', value: event.severity, short: true },
-              { title: 'Type', value: event.type, short: true },
-              { title: 'Message', value: event.message, short: false },
-              { title: 'User ID', value: event.userId || 'N/A', short: true },
-              { title: 'IP Address', value: event.ip || 'N/A', short: true },
-              { title: 'Timestamp', value: event.timestamp, short: false }
-            ]
-          }
-        ]
+              { title: "Severity", value: event.severity, short: true },
+              { title: "Type", value: event.type, short: true },
+              { title: "Message", value: event.message, short: false },
+              { title: "User ID", value: event.userId || "N/A", short: true },
+              { title: "IP Address", value: event.ip || "N/A", short: true },
+              { title: "Timestamp", value: event.timestamp, short: false },
+            ],
+          },
+        ],
       };
 
       await fetch(this.alertWebhook, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(alertMessage)
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(alertMessage),
       });
     } catch (error) {
-      console.error('[SecurityLogger] Alert sending failed:', error);
+      console.error("[SecurityLogger] Alert sending failed:", error);
     }
   }
 
@@ -210,7 +222,7 @@ class SecurityLogger {
     return {
       eventCounts: { ...this.metrics.eventCounts },
       suspiciousIPs: new Map(this.metrics.suspiciousIPs),
-      failedAuthAttempts: new Map(this.metrics.failedAuthAttempts)
+      failedAuthAttempts: new Map(this.metrics.failedAuthAttempts),
     };
   }
 
@@ -238,20 +250,20 @@ class SecurityLogger {
       cutoffDate.setDate(cutoffDate.getDate() - this.retentionDays);
 
       for (const file of files) {
-        if (!file.startsWith('security-') || !file.endsWith('.log')) {
+        if (!file.startsWith("security-") || !file.endsWith(".log")) {
           continue;
         }
 
         const filePath = path.join(this.logDir, file);
         const stats = await fs.stat(filePath);
-        
+
         if (stats.mtime < cutoffDate) {
           await fs.unlink(filePath);
           console.log(`[SecurityLogger] Deleted old log: ${file}`);
         }
       }
     } catch (error) {
-      console.error('[SecurityLogger] Cleanup error:', error);
+      console.error("[SecurityLogger] Cleanup error:", error);
     }
   }
 
@@ -268,7 +280,7 @@ class SecurityLogger {
         .slice(0, 10),
       topFailedAuthUsers: Array.from(this.metrics.failedAuthAttempts.entries())
         .sort((a, b) => b[1] - a[1])
-        .slice(0, 10)
+        .slice(0, 10),
     };
 
     return JSON.stringify(report, null, 2);
@@ -277,8 +289,8 @@ class SecurityLogger {
 
 // Export singleton instance
 export const securityLogger = new SecurityLogger(
-  path.join(process.cwd(), 'logs', 'security'),
-  parseInt(process.env.SECURITY_LOG_RETENTION_DAYS || '90')
+  path.join(process.cwd(), "logs", "security"),
+  parseInt(process.env.SECURITY_LOG_RETENTION_DAYS || "90")
 );
 
 // Convenience methods
@@ -291,7 +303,15 @@ export async function logSecurityEvent(
   ip?: string,
   userAgent?: string
 ): Promise<void> {
-  await securityLogger.logEvent(type, severity, message, details, userId, ip, userAgent);
+  await securityLogger.logEvent(
+    type,
+    severity,
+    message,
+    details,
+    userId,
+    ip,
+    userAgent
+  );
 }
 
 export function getSecurityMetrics(): SecurityMetrics {
