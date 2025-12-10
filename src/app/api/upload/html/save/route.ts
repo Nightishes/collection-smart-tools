@@ -5,6 +5,7 @@ import path from "path";
 import { modifyHtml } from "../../helpers/htmlModify";
 import { checkRateLimit } from "@/lib/jwtAuth";
 import { sanitizeHtml, isPdf2HtmlExContent } from "@/lib/sanitize";
+import { parseJsonSafely } from "@/lib/inputValidation";
 
 export async function POST(req: Request) {
   try {
@@ -16,7 +17,18 @@ export async function POST(req: Request) {
       });
     }
 
-    const body = await req.json();
+    // Parse JSON with safety limits
+    const jsonResult = await parseJsonSafely(req, {
+      maxSize: 15 * 1024 * 1024, // 15MB for HTML content
+      maxDepth: 10,
+      maxKeys: 50,
+    });
+    if (!jsonResult.success) {
+      return new Response(JSON.stringify({ error: jsonResult.error }), {
+        status: 400,
+      });
+    }
+    const body = jsonResult.data;
 
     // Handle direct content saving for preview
     if (body.content && body.filename) {

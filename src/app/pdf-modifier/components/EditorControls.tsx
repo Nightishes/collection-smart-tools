@@ -23,6 +23,8 @@ type EditorControlsProps = {
   styleInfo: StyleInfo;
   fcOverrides?: Record<string, string>;
   fsOverrides?: Record<string, string>;
+  selectedFcClass?: string | null;
+  selectedFsClass?: string | null;
   onClassOverrideChange?: (
     kind: "fc" | "fs",
     name: string,
@@ -52,6 +54,8 @@ export function EditorControls({
   styleInfo,
   fcOverrides = {},
   fsOverrides = {},
+  selectedFcClass,
+  selectedFsClass,
   onClassOverrideChange,
   onClassOverrideReset,
   selectedElement,
@@ -119,6 +123,7 @@ export function EditorControls({
           <FontColorControls
             styleInfo={styleInfo}
             fcOverrides={fcOverrides}
+            selectedFcClass={selectedFcClass}
             onClassOverrideChange={onClassOverrideChange}
             onClassOverrideReset={onClassOverrideReset}
           />
@@ -126,6 +131,7 @@ export function EditorControls({
           <FontSizeControls
             styleInfo={styleInfo}
             fsOverrides={fsOverrides}
+            selectedFsClass={selectedFsClass}
             onClassOverrideChange={onClassOverrideChange}
             onClassOverrideReset={onClassOverrideReset}
           />

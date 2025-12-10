@@ -25,6 +25,7 @@ export default function PageModifyHtml() {
     modifiedHtml,
     contentVersion,
     selectedElement,
+    selectedElementClasses,
     moveDistance,
     setMoveDistance,
     imageList,
@@ -36,6 +37,7 @@ export default function PageModifyHtml() {
     deleteSelectedElement,
     insertElementAfterSelected,
     moveElementDirection,
+    handleDragMove,
     reset,
     fcOverrides,
     fsOverrides,
@@ -109,8 +111,11 @@ export default function PageModifyHtml() {
   // Setup postMessage listener for iframe element selection
   useEffect(() => {
     const handlers: MessageHandlers = {
-      onElementSelected: (path: number[]) => {
-        handleElementSelection(path);
+      onElementSelected: (
+        path: number[],
+        elementInfo?: { fcClass?: string | null; fsClass?: string | null }
+      ) => {
+        handleElementSelection(path, elementInfo);
       },
       onInsertElement: (path: number[]) => {
         const content = prompt("Enter text content:", "New paragraph");
@@ -141,6 +146,10 @@ export default function PageModifyHtml() {
           deleteSelectedElement();
         }, 0);
       },
+      onDragMove: (path: number[], deltaX: number, deltaY: number) => {
+        console.log("onDragMove handler called:", path, deltaX, deltaY);
+        handleDragMove(path, deltaX, deltaY);
+      },
     };
 
     const handleMessage = createMessageHandler(handlers);
@@ -151,6 +160,7 @@ export default function PageModifyHtml() {
     deleteSelectedElement,
     moveElementDirection,
     insertElementAfterSelected,
+    handleDragMove,
   ]);
 
   // Update iframe content without full reload for better UX
@@ -246,6 +256,8 @@ export default function PageModifyHtml() {
               styleInfo={styleInfo}
               fcOverrides={fcOverrides}
               fsOverrides={fsOverrides}
+              selectedFcClass={selectedElementClasses.fcClass}
+              selectedFsClass={selectedElementClasses.fsClass}
               onClassOverrideChange={updateClassOverride}
               onClassOverrideReset={resetClassOverride}
               onDownload={onDownload}

@@ -791,6 +791,167 @@ export function moveElement(
 }
 
 /**
+ * Move an element by exact pixel offset (from drag-and-drop)
+ * @param html - Original HTML content
+ * @param selectorPath - Array of indices representing path to element
+ * @param deltaX - Horizontal movement in pixels (positive = right)
+ * @param deltaY - Vertical movement in pixels (positive = down)
+ * @returns Modified HTML with element moved
+ */
+export function dragMoveElement(
+  html: string,
+  selectorPath: number[],
+  deltaX: number,
+  deltaY: number
+): string {
+  if (!selectorPath || selectorPath.length === 0) {
+    return html;
+  }
+
+  const bodyMatch = html.match(/<body[^>]*>([\s\S]*)<\/body>/i);
+  if (!bodyMatch) {
+    return html;
+  }
+
+  const bodyContent = bodyMatch[1];
+  const bodyContainer = document.createElement("div");
+  bodyContainer.innerHTML = bodyContent;
+
+  // Navigate to target element
+  let current: Element | null = bodyContainer;
+  for (let i = 0; i < selectorPath.length; i++) {
+    const index = selectorPath[i];
+    if (!current) return html;
+    const children: Element[] = Array.from(current.children);
+    if (index >= 0 && index < children.length) {
+      current = children[index];
+    } else {
+      return html;
+    }
+  }
+
+  if (!(current instanceof HTMLElement)) {
+    return html;
+  }
+
+  // Find positioning classes for both vertical and horizontal
+  const verticalPattern = /^y[0-9a-f]*$/i;
+  const horizontalPattern = /^x[0-9a-f]*$/i;
+
+  let verticalClass: string | null = null;
+  let horizontalClass: string | null = null;
+  let targetElement: HTMLElement = current;
+
+  // Look for positioning classes in current element and ancestors
+  while (targetElement && targetElement !== bodyContainer) {
+    const classList = targetElement.className.split(/\s+/);
+    for (const className of classList) {
+      if (!verticalClass && verticalPattern.test(className)) {
+        verticalClass = className;
+      }
+      if (!horizontalClass && horizontalPattern.test(className)) {
+        horizontalClass = className;
+      }
+    }
+    if (verticalClass && horizontalClass) break;
+    targetElement = targetElement.parentElement as HTMLElement;
+  }
+
+  // Update CSS for both directions if we found classes
+  let modifiedHtml = html;
+
+  // Handle vertical movement (deltaY)
+  if (deltaY !== 0 && verticalClass) {
+    modifiedHtml = updatePositionInCSS(
+      modifiedHtml,
+      verticalClass,
+      deltaY,
+      true
+    );
+  }
+
+  // Handle horizontal movement (deltaX)
+  if (deltaX !== 0 && horizontalClass) {
+    modifiedHtml = updatePositionInCSS(
+      modifiedHtml,
+      horizontalClass,
+      deltaX,
+      false
+    );
+  }
+
+  // If no positioning classes found, use inline styles
+  if (!verticalClass && !horizontalClass && current instanceof HTMLElement) {
+    console.log("dragMoveElement: No positioning classes, using inline styles");
+
+    const currentTop = parseFloat(current.style.top) || 0;
+    const currentLeft = parseFloat(current.style.left) || 0;
+
+    current.style.position = "relative";
+    current.style.top = `${currentTop + deltaY}px`;
+    current.style.left = `${currentLeft + deltaX}px`;
+
+    const updatedBodyContent = bodyContainer.innerHTML;
+    modifiedHtml = modifiedHtml.replace(bodyMatch[1], updatedBodyContent);
+  }
+
+  return modifiedHtml;
+}
+
+/**
+ * Helper function to update position in CSS
+ */
+function updatePositionInCSS(
+  html: string,
+  positionClass: string,
+  delta: number,
+  isVertical: boolean
+): string {
+  const styleRegex = /<style[^>]*>([\s\S]*?)<\/style>/gi;
+  const styleMatches = Array.from(html.matchAll(styleRegex));
+
+  for (let i = 0; i < styleMatches.length; i++) {
+    const styleMatch = styleMatches[i];
+    const cssContent = styleMatch[1];
+
+    const propertyName = isVertical ? "top|bottom" : "left|right";
+    const classPattern = new RegExp(
+      `\\.${positionClass}\\{[^}]*(${propertyName})\\s*:\\s*([0-9.]+)(px|pt)`,
+      "i"
+    );
+    const classMatch = cssContent.match(classPattern);
+
+    if (classMatch) {
+      const property = classMatch[1]; // "top", "bottom", "left", or "right"
+      const currentValue = parseFloat(classMatch[2]);
+      const unit = classMatch[3];
+
+      if (!isNaN(currentValue)) {
+        // For bottom/right, movement is inverse
+        const isInverse = property === "bottom" || property === "right";
+        const newValue = isInverse
+          ? currentValue - delta
+          : currentValue + delta;
+
+        const fullClassPattern = new RegExp(
+          `(\\.${positionClass}\\{[^}]*${property}\\s*:\\s*)([0-9.]+)(${unit})`,
+          "i"
+        );
+
+        const newCssContent = cssContent.replace(
+          fullClassPattern,
+          `$1${newValue.toFixed(6)}$3`
+        );
+
+        return html.replace(styleMatch[0], `<style>${newCssContent}</style>`);
+      }
+    }
+  }
+
+  return html;
+}
+
+/**
  * Delete an element from HTML by selector path
  * @param html - Original HTML content
  * @param selectorPath - Array of indices representing path to element (e.g., [0, 2, 1])

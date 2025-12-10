@@ -3,6 +3,7 @@ export const runtime = "nodejs";
 import fs from "fs/promises";
 import path from "path";
 import { checkRateLimit } from "@/lib/jwtAuth";
+import { parseJsonSafely } from "@/lib/inputValidation";
 
 export async function POST(req: Request) {
   try {
@@ -14,7 +15,18 @@ export async function POST(req: Request) {
       });
     }
 
-    const body = await req.json();
+    // Parse JSON with safety limits
+    const jsonResult = await parseJsonSafely(req, {
+      maxSize: 1024 * 1024, // 1MB for simple file reference
+      maxDepth: 5,
+      maxKeys: 20,
+    });
+    if (!jsonResult.success) {
+      return new Response(JSON.stringify({ error: jsonResult.error }), {
+        status: 400,
+      });
+    }
+    const body = jsonResult.data;
     const originalFile = body.file;
 
     if (!originalFile) {

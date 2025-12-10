@@ -6,6 +6,7 @@ import {
   deleteElement,
   insertElement,
   moveElement,
+  dragMoveElement,
   ImageInfo,
 } from "../../../lib/htmlModify";
 import { ModifyOptions, StyleInfo } from "../types";
@@ -17,6 +18,10 @@ export function useHtmlModifier() {
   const [modifiedHtml, setModifiedHtml] = useState<string | null>(null);
   const [contentVersion, setContentVersion] = useState<number>(0);
   const [selectedElement, setSelectedElement] = useState<number[] | null>(null);
+  const [selectedElementClasses, setSelectedElementClasses] = useState<{
+    fcClass: string | null;
+    fsClass: string | null;
+  }>({ fcClass: null, fsClass: null });
   const [moveDistance, setMoveDistance] = useState<number>(10);
   const [imageList, setImageList] = useState<ImageInfo[]>([]);
   const [styleInfo, setStyleInfo] = useState<StyleInfo>({
@@ -25,6 +30,12 @@ export function useHtmlModifier() {
   });
   const [fcOverrides, setFcOverrides] = useState<Record<string, string>>({});
   const [fsOverrides, setFsOverrides] = useState<Record<string, string>>({});
+
+  // Store original styleInfo for reset functionality
+  const originalStyleInfoRef = useRef<StyleInfo>({
+    fontColors: [],
+    fontSizes: [],
+  });
 
   const [options, setOptions] = useState<ModifyOptions>({
     bgColor: "#ffffff",
@@ -271,6 +282,13 @@ export function useHtmlModifier() {
         );
         setStyleInfo(newStyleInfo);
         setImageList(newImageList);
+
+        // Store original styleInfo for reset functionality
+        originalStyleInfoRef.current = {
+          fontColors: [...newStyleInfo.fontColors],
+          fontSizes: [...newStyleInfo.fontSizes],
+        };
+
         // initialize overrides from discovered styleInfo if not already present
         const initialFc: Record<string, string> = {};
         newStyleInfo.fontColors.forEach((fc) => {
@@ -391,13 +409,33 @@ export function useHtmlModifier() {
   };
 
   const resetClassOverride = (kind: "fc" | "fs", name: string) => {
-    // reset to discovered original value from styleInfo
+    // reset to discovered original value from originalStyleInfoRef
     if (kind === "fc") {
-      const orig = styleInfo.fontColors.find((f) => f.name === name)?.value;
-      if (orig !== undefined) updateClassOverride("fc", name, orig);
+      const orig = originalStyleInfoRef.current.fontColors.find(
+        (f) => f.name === name
+      )?.value;
+      if (orig !== undefined) {
+        updateClassOverride("fc", name, orig);
+      } else {
+        // Fallback to current styleInfo if not in original
+        const fallback = styleInfo.fontColors.find(
+          (f) => f.name === name
+        )?.value;
+        if (fallback !== undefined) updateClassOverride("fc", name, fallback);
+      }
     } else {
-      const orig = styleInfo.fontSizes.find((f) => f.name === name)?.value;
-      if (orig !== undefined) updateClassOverride("fs", name, orig);
+      const orig = originalStyleInfoRef.current.fontSizes.find(
+        (f) => f.name === name
+      )?.value;
+      if (orig !== undefined) {
+        updateClassOverride("fs", name, orig);
+      } else {
+        // Fallback to current styleInfo if not in original
+        const fallback = styleInfo.fontSizes.find(
+          (f) => f.name === name
+        )?.value;
+        if (fallback !== undefined) updateClassOverride("fs", name, fallback);
+      }
     }
   };
 
@@ -411,9 +449,43 @@ export function useHtmlModifier() {
     workingCopyCache.current = null;
   };
 
-  const handleElementSelection = useCallback((path: number[]) => {
-    setSelectedElement(path);
-  }, []);
+  const handleElementSelection = useCallback(
+    (
+      path: number[],
+      elementInfo?: { fcClass?: string | null; fsClass?: string | null }
+    ) => {
+      setSelectedElement(path);
+
+      // If element info is provided (from iframe), extract and auto-populate
+      if (elementInfo) {
+        const fcClass = elementInfo.fcClass || null;
+        const fsClass = elementInfo.fsClass || null;
+
+        setSelectedElementClasses({ fcClass, fsClass });
+
+        // Auto-apply the detected classes as overrides so controls show them
+        if (fcClass) {
+          const colorValue = styleInfo.fontColors.find(
+            (c) => c.name === fcClass
+          )?.value;
+          if (colorValue && !fcOverrides[fcClass]) {
+            setFcOverrides((prev) => ({ ...prev, [fcClass]: colorValue }));
+          }
+        }
+        if (fsClass) {
+          const sizeValue = styleInfo.fontSizes.find(
+            (s) => s.name === fsClass
+          )?.value;
+          if (sizeValue && !fsOverrides[fsClass]) {
+            setFsOverrides((prev) => ({ ...prev, [fsClass]: sizeValue }));
+          }
+        }
+      } else {
+        setSelectedElementClasses({ fcClass: null, fsClass: null });
+      }
+    },
+    [styleInfo, fcOverrides, fsOverrides]
+  );
 
   const deleteSelectedElement = useCallback(() => {
     try {
@@ -484,6 +556,31 @@ export function useHtmlModifier() {
       updateWorkingCopy(newHtml);
     },
     [selectedElement, moveDistance, getWorkingCopy, updateWorkingCopy]
+  );
+
+  const handleDragMove = useCallback(
+    (path: number[], deltaX: number, deltaY: number) => {
+      console.log(
+        "handleDragMove called with path:",
+        path,
+        "deltaX:",
+        deltaX,
+        "deltaY:",
+        deltaY
+      );
+
+      const currentHtml = getWorkingCopy();
+      if (!currentHtml) {
+        console.warn("No HTML content available for drag move");
+        return;
+      }
+
+      const newHtml = dragMoveElement(currentHtml, path, deltaX, deltaY);
+      updateWorkingCopy(newHtml);
+
+      console.log("Drag move completed, HTML updated");
+    },
+    [getWorkingCopy, updateWorkingCopy]
   );
 
   const insertElementAfterSelected = useCallback(
@@ -568,6 +665,7 @@ export function useHtmlModifier() {
     modifiedHtml,
     contentVersion,
     selectedElement,
+    selectedElementClasses,
     moveDistance,
     setMoveDistance,
     imageList,
@@ -583,6 +681,7 @@ export function useHtmlModifier() {
     deleteSelectedElement,
     insertElementAfterSelected,
     moveElementDirection,
+    handleDragMove,
     reset,
   };
 }

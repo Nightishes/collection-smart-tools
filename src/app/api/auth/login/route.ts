@@ -1,7 +1,12 @@
-export const runtime = 'nodejs';
+export const runtime = "nodejs";
 
-import { NextResponse } from 'next/server';
-import { validateCredentials, generateToken, checkRateLimit } from '@/lib/jwtAuth';
+import { NextResponse } from "next/server";
+import {
+  validateCredentials,
+  generateToken,
+  checkRateLimit,
+} from "@/lib/jwtAuth";
+import { parseJsonSafely } from "@/lib/inputValidation";
 
 /**
  * POST /api/auth/login
@@ -16,11 +21,20 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: rateCheck.message }, { status: 429 });
     }
 
-    const { username, password } = await req.json();
+    // Parse JSON with safety limits
+    const jsonResult = await parseJsonSafely(req, {
+      maxSize: 1024, // 1KB for credentials
+      maxDepth: 3,
+      maxKeys: 10,
+    });
+    if (!jsonResult.success) {
+      return NextResponse.json({ error: jsonResult.error }, { status: 400 });
+    }
+    const { username, password } = jsonResult.data;
 
     if (!username || !password) {
       return NextResponse.json(
-        { error: 'Username and password are required' },
+        { error: "Username and password are required" },
         { status: 400 }
       );
     }
@@ -30,7 +44,7 @@ export async function POST(req: Request) {
 
     if (!validation.valid || !validation.role || !validation.userId) {
       return NextResponse.json(
-        { error: 'Invalid username or password' },
+        { error: "Invalid username or password" },
         { status: 401 }
       );
     }
@@ -42,12 +56,12 @@ export async function POST(req: Request) {
       success: true,
       token,
       role: validation.role,
-      userId: validation.userId
+      userId: validation.userId,
     });
   } catch (err: any) {
-    console.error('Login error', err);
+    console.error("Login error", err);
     return NextResponse.json(
-      { error: 'Internal server error' },
+      { error: "Internal server error" },
       { status: 500 }
     );
   }

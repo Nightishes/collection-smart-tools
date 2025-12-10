@@ -1,10 +1,11 @@
-export const runtime = 'nodejs';
+export const runtime = "nodejs";
 
-import { NextResponse } from 'next/server';
-import path from 'path';
-import fs from 'fs/promises';
-import '@/lib/autoCleanup';
-import { checkRateLimit } from '@/lib/jwtAuth';
+import { NextResponse } from "next/server";
+import path from "path";
+import fs from "fs/promises";
+import "@/lib/autoCleanup";
+import { checkRateLimit } from "@/lib/jwtAuth";
+import { validateFilenameParam } from "@/lib/inputValidation";
 
 /**
  * GET /api/upload/pdf?file=<filename>
@@ -19,35 +20,36 @@ export async function GET(req: Request) {
     }
 
     const url = new URL(req.url);
-    const fileParam = url.searchParams.get('file');
-    if (!fileParam) {
-      return NextResponse.json({ error: 'Missing file parameter' }, { status: 400 });
+    const fileParam = url.searchParams.get("file");
+
+    // Validate filename parameter
+    const validation = validateFilenameParam(fileParam, [".pdf"]);
+    if (!validation.valid) {
+      return NextResponse.json({ error: validation.error }, { status: 400 });
     }
-    // sanitize requested file
-    const requested = path.basename(fileParam); // strip any path components
-    if (!requested.toLowerCase().endsWith('.pdf')) {
-      return NextResponse.json({ error: 'Only PDF files allowed' }, { status: 400 });
-    }
-    // enforce same sanitization rules
-    const safe = requested.replace(/[^A-Za-z0-9._-]/g, '_');
-    const uploadsDir = path.join(process.cwd(), 'uploads');
+
+    const safe = validation.sanitized!;
+    const uploadsDir = path.join(process.cwd(), "uploads");
     const abs = path.join(uploadsDir, safe);
     try {
       await fs.access(abs);
     } catch {
-      return NextResponse.json({ error: 'File not found' }, { status: 404 });
+      return NextResponse.json({ error: "File not found" }, { status: 404 });
     }
     const data = await fs.readFile(abs);
     return new NextResponse(data, {
       status: 200,
       headers: {
-        'Content-Type': 'application/pdf',
-        'Content-Length': String(data.length),
-        'Content-Disposition': `attachment; filename="${safe}"`
-      }
+        "Content-Type": "application/pdf",
+        "Content-Length": String(data.length),
+        "Content-Disposition": `attachment; filename="${safe}"`,
+      },
     });
   } catch (err: any) {
-    console.error('GET /api/upload/pdf error', err);
-    return NextResponse.json({ error: err?.message || 'Internal error' }, { status: 500 });
+    console.error("GET /api/upload/pdf error", err);
+    return NextResponse.json(
+      { error: err?.message || "Internal error" },
+      { status: 500 }
+    );
   }
 }

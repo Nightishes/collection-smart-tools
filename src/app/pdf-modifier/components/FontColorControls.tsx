@@ -3,12 +3,19 @@
  * Manages font color class overrides with color pickers
  */
 
+import { useEffect } from "react";
 import { StyleInfo } from "../types";
 import styles from "../page.module.css";
+
+// Helper function to convert fc class name to friendly display name
+function getFriendlyColorName(className: string, index: number): string {
+  return `Color ${index + 1}`;
+}
 
 interface FontColorControlsProps {
   styleInfo: StyleInfo;
   fcOverrides: Record<string, string>;
+  selectedFcClass?: string | null;
   onClassOverrideChange?: (
     kind: "fc" | "fs",
     name: string,
@@ -20,14 +27,42 @@ interface FontColorControlsProps {
 export function FontColorControls({
   styleInfo,
   fcOverrides,
+  selectedFcClass,
   onClassOverrideChange,
   onClassOverrideReset,
 }: FontColorControlsProps) {
+  // Auto-select dropdown when selectedFcClass changes
+  useEffect(() => {
+    if (selectedFcClass) {
+      const select = document.getElementById(
+        "fc-class-select"
+      ) as HTMLSelectElement;
+      const input = document.getElementById(
+        "fc-value-input"
+      ) as HTMLInputElement;
+      const resetBtn = document.getElementById(
+        "fc-reset-btn"
+      ) as HTMLButtonElement;
+
+      if (select && input && resetBtn) {
+        select.value = selectedFcClass;
+        const selectedFc = styleInfo.fontColors.find(
+          (fc) => fc.name === selectedFcClass
+        );
+        if (selectedFc) {
+          input.dataset.fcName = selectedFc.name;
+          input.value = fcOverrides[selectedFc.name] ?? selectedFc.value;
+          resetBtn.disabled = false;
+        }
+      }
+    }
+  }, [selectedFcClass, styleInfo.fontColors, fcOverrides]);
   return (
     <div>
       <h3 className={styles.sectionTitle}>Font Colors</h3>
       <div className={styles.fontSizesContainer}>
         <select
+          id="fc-class-select"
           onChange={(e) => {
             const input = document.getElementById(
               "fc-value-input"
@@ -63,11 +98,11 @@ export function FontColorControls({
         >
           <option value="">Select font color class...</option>
           <option value="all">General font color (apply to all)</option>
-          {styleInfo.fontColors.map((fc) => {
+          {styleInfo.fontColors.map((fc, index) => {
             const current = fcOverrides[fc.name] ?? fc.value;
             return (
               <option key={fc.name} value={fc.name}>
-                {fc.name} ({current})
+                {getFriendlyColorName(fc.name, index)} ({current})
               </option>
             );
           })}

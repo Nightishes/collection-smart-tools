@@ -8,6 +8,7 @@ import { execFile as _execFile } from "child_process";
 import { promisify } from "util";
 import { checkRateLimit, getAuthUser, getMaxFileSize } from "@/lib/jwtAuth";
 import { sanitizeHtml } from "@/lib/sanitize";
+import { parseJsonSafely } from "@/lib/inputValidation";
 
 const execFile = promisify(_execFile);
 
@@ -32,7 +33,18 @@ export async function POST(req: Request) {
     const user = getAuthUser(req);
     const maxSize = getMaxFileSize(user);
 
-    const body: Body = await req.json();
+    // Parse JSON with safety limits
+    const jsonResult = await parseJsonSafely(req, {
+      maxSize: 15 * 1024 * 1024, // 15MB for HTML content
+      maxDepth: 10,
+      maxKeys: 50,
+    });
+    if (!jsonResult.success) {
+      return new Response(JSON.stringify({ error: jsonResult.error }), {
+        status: 400,
+      });
+    }
+    const body: Body = jsonResult.data;
 
     let html: string | null = null;
 

@@ -2,6 +2,10 @@ import { NextResponse } from "next/server";
 import * as mammoth from "mammoth";
 import { checkRateLimit, getAuthUser, getMaxFileSize } from "@/lib/jwtAuth";
 import { validateDocxMagic, sanitizeHtml } from "@/lib/sanitize";
+import {
+  validateFormatParam,
+  XXE_SAFE_XML_CONFIG,
+} from "@/lib/inputValidation";
 import { scanFile } from "@/lib/virusScanner";
 import fs from "fs/promises";
 import path from "path";
@@ -30,7 +34,16 @@ export async function POST(req: Request) {
     const formData = await req.formData();
     const file = formData.get("file");
     const reqFormat = (formData.get("format") as string) || "html";
-    const format = reqFormat === "text" ? "text" : "html";
+
+    // Validate format parameter
+    const formatValidation = validateFormatParam(reqFormat, ["html", "text"]);
+    if (!formatValidation.valid) {
+      return NextResponse.json(
+        { success: false, error: formatValidation.error },
+        { status: 400 }
+      );
+    }
+    const format = formatValidation.sanitized as "html" | "text";
 
     if (!(file instanceof File)) {
       return NextResponse.json(
@@ -45,9 +58,10 @@ export async function POST(req: Request) {
       );
     }
 
-    // Size check
-    if (file.size > maxSize) {
-      const limitMB = Math.floor(maxSize / (1024 * 1024));
+    // Size check (also mitigates XXE DoS attacks via huge XML files)
+    const xxeSafeMaxSize = Math.min(maxSize, XXE_SAFE_XML_CONFIG.maxSize);
+    if (file.size > xxeSafeMaxSize) {
+      const limitMB = Math.floor(xxeSafeMaxSize / (1024 * 1024));
       return NextResponse.json(
         {
           error: `File too large (max ${limitMB}MB${
@@ -97,6 +111,9 @@ export async function POST(req: Request) {
       await fs.unlink(tempFile).catch(() => {});
     }
 
+    // Note: mammoth library doesn't expose XML parser configuration.
+    // XXE protection relies on: 1) size limits, 2) no network access in Docker,
+    // 3) virus scanning catches many exploits
     if (format === "text") {
       const raw = await mammoth.extractRawText({ buffer });
       return NextResponse.json({

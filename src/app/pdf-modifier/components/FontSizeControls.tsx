@@ -3,12 +3,19 @@
  * Manages font size class overrides with dropdown and input
  */
 
+import { useEffect } from "react";
 import { StyleInfo } from "../types";
 import styles from "../page.module.css";
+
+// Helper function to convert fs class name to friendly display name
+function getFriendlySizeName(className: string, index: number): string {
+  return `Size ${index + 1}`;
+}
 
 interface FontSizeControlsProps {
   styleInfo: StyleInfo;
   fsOverrides: Record<string, string>;
+  selectedFsClass?: string | null;
   onClassOverrideChange?: (
     kind: "fc" | "fs",
     name: string,
@@ -20,14 +27,42 @@ interface FontSizeControlsProps {
 export function FontSizeControls({
   styleInfo,
   fsOverrides,
+  selectedFsClass,
   onClassOverrideChange,
   onClassOverrideReset,
 }: FontSizeControlsProps) {
+  // Auto-select dropdown when selectedFsClass changes
+  useEffect(() => {
+    if (selectedFsClass) {
+      const select = document.getElementById(
+        "fs-class-select"
+      ) as HTMLSelectElement;
+      const input = document.getElementById(
+        "fs-value-input"
+      ) as HTMLInputElement;
+      const resetBtn = document.getElementById(
+        "fs-reset-btn"
+      ) as HTMLButtonElement;
+
+      if (select && input && resetBtn) {
+        select.value = selectedFsClass;
+        const selectedFs = styleInfo.fontSizes.find(
+          (fs) => fs.name === selectedFsClass
+        );
+        if (selectedFs) {
+          input.dataset.fsName = selectedFs.name;
+          input.value = fsOverrides[selectedFs.name] ?? selectedFs.value;
+          resetBtn.disabled = false;
+        }
+      }
+    }
+  }, [selectedFsClass, styleInfo.fontSizes, fsOverrides]);
   return (
     <div>
       <h3 className={styles.sectionTitle}>Font Sizes</h3>
       <div className={styles.fontSizesContainer}>
         <select
+          id="fs-class-select"
           onChange={(e) => {
             const selectedFs = styleInfo.fontSizes.find(
               (fs) => fs.name === e.target.value
@@ -53,11 +88,11 @@ export function FontSizeControls({
           className={styles.select}
         >
           <option value="">Select font size class...</option>
-          {styleInfo.fontSizes.map((fs) => {
+          {styleInfo.fontSizes.map((fs, index) => {
             const current = fsOverrides[fs.name] ?? fs.value;
             return (
               <option key={fs.name} value={fs.name}>
-                {fs.name} ({current})
+                {getFriendlySizeName(fs.name, index)} ({current})
               </option>
             );
           })}

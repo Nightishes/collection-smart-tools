@@ -5,6 +5,7 @@ import path from "path";
 import { checkRateLimit } from "@/lib/jwtAuth";
 import { sanitizeHtml, isPdf2HtmlExContent } from "@/lib/sanitize";
 import compression from "@/lib/compression";
+import { validateFilenameParam } from "@/lib/inputValidation";
 
 export async function GET(req: Request) {
   try {
@@ -18,13 +19,17 @@ export async function GET(req: Request) {
 
     const url = new URL(req.url);
     const file = url.searchParams.get("file");
-    if (!file)
-      return new Response(JSON.stringify({ error: "file param required" }), {
+
+    // Validate filename parameter
+    const validation = validateFilenameParam(file, [".html"]);
+    if (!validation.valid) {
+      return new Response(JSON.stringify({ error: validation.error }), {
         status: 400,
       });
+    }
 
-    // sanitize filename - only allow basename
-    const safeName = path.basename(file);
+    // Use validated filename
+    const safeName = validation.sanitized!;
     const uploadsDir = path.join(process.cwd(), "uploads");
     const filePath = path.join(uploadsDir, safeName);
 

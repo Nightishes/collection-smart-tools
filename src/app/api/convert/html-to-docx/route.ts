@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { checkRateLimit, getAuthUser, getMaxFileSize } from "@/lib/jwtAuth";
 import { sanitizeHtml } from "@/lib/sanitize";
 import { convertHtmlToFormattedDocx } from "@/lib/htmlToFormattedDocx";
+import { parseJsonSafely } from "@/lib/inputValidation";
 
 export const runtime = "nodejs";
 
@@ -22,7 +23,16 @@ export async function POST(req: Request) {
     const user = getAuthUser(req);
     const maxSize = getMaxFileSize(user);
 
-    const { html, filename } = await req.json();
+    // Parse JSON with safety limits
+    const jsonResult = await parseJsonSafely(req, {
+      maxSize: 15 * 1024 * 1024, // 15MB for HTML content
+      maxDepth: 10,
+      maxKeys: 50,
+    });
+    if (!jsonResult.success) {
+      return NextResponse.json({ error: jsonResult.error }, { status: 400 });
+    }
+    const { html, filename } = jsonResult.data;
     if (typeof html !== "string" || html.trim() === "") {
       return NextResponse.json(
         { success: false, error: "No HTML provided" },

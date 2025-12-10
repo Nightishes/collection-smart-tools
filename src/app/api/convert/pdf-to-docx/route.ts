@@ -4,6 +4,7 @@ import fs from "fs/promises";
 import PDFParser from "pdf-parse";
 import { Document, Packer, Paragraph, TextRun } from "docx";
 import { checkRateLimit, getAuthUser, getMaxFileSize } from "@/lib/jwtAuth";
+import { XXE_SAFE_XML_CONFIG } from "@/lib/inputValidation";
 import { validatePdfMagic } from "@/lib/sanitize";
 import { convertPdfToHtml } from "@/app/api/upload/helpers/convert";
 import { convertHtmlToFormattedDocx } from "@/lib/htmlToFormattedDocx";
@@ -46,9 +47,10 @@ export async function POST(req: Request) {
       );
     }
 
-    // Size check
-    if (file.size > maxSize) {
-      const limitMB = Math.floor(maxSize / (1024 * 1024));
+    // Size check (also mitigates XXE DoS attacks via huge files)
+    const xxeSafeMaxSize = Math.min(maxSize, XXE_SAFE_XML_CONFIG.maxSize);
+    if (file.size > xxeSafeMaxSize) {
+      const limitMB = Math.floor(xxeSafeMaxSize / (1024 * 1024));
       return NextResponse.json(
         {
           error: `File too large (max ${limitMB}MB${

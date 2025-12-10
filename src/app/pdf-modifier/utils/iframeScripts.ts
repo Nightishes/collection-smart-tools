@@ -4,13 +4,17 @@
  */
 
 export interface MessageHandlers {
-  onElementSelected: (path: number[]) => void;
+  onElementSelected: (
+    path: number[],
+    elementInfo?: { fcClass?: string | null; fsClass?: string | null }
+  ) => void;
   onInsertElement: (path: number[]) => void;
   onMoveUp: (path: number[]) => void;
   onMoveDown: (path: number[]) => void;
   onMoveLeft: (path: number[]) => void;
   onMoveRight: (path: number[]) => void;
   onDeleteElement: (path: number[]) => void;
+  onDragMove: (path: number[], deltaX: number, deltaY: number) => void;
 }
 
 /**
@@ -22,12 +26,13 @@ export function generateIframeScript(): string {
     (function() {
       let selectedElement = null;
       
-      // Add CSS for the clicked class and hover feedback
+      // Add CSS for the selected and hover states
       const style = document.createElement('style');
       style.textContent = \`
         .pdf-editor-selected {
           outline: 3px solid #ff0000 !important;
           background-color: rgba(255, 0, 0, 0.15) !important;
+          cursor: grab !important;
         }
         .pdf-editor-hoverable {
           cursor: pointer !important;
@@ -35,6 +40,11 @@ export function generateIframeScript(): string {
         }
         .pdf-editor-hoverable:hover {
           background-color: rgba(0, 102, 204, 0.08) !important;
+        }
+        /* Selected elements should not show hover state */
+        .pdf-editor-selected.pdf-editor-hoverable {
+          outline: 3px solid #ff0000 !important;
+          background-color: rgba(255, 0, 0, 0.15) !important;
         }
       \`;
       document.head.appendChild(style);
@@ -53,6 +63,46 @@ export function generateIframeScript(): string {
           }
         }
         return path;
+      }
+      
+      function extractElementClasses(element) {
+        // Extract fc (font color) and fs (font size) classes from element or its children
+        let fcClass = null;
+        let fsClass = null;
+        
+        if (element && element.classList) {
+          const classList = Array.from(element.classList);
+          
+          // Check current element
+          for (const className of classList) {
+            if (/^fc[0-9a-f]+$/i.test(className)) {
+              fcClass = className;
+            }
+            if (/^fs[0-9a-f]+$/i.test(className)) {
+              fsClass = className;
+            }
+          }
+          
+          // If not found, check first text child (common in pdf2htmlEX)
+          if (!fcClass || !fsClass) {
+            const textChild = Array.from(element.children).find(child => 
+              child.classList && child.classList.contains('t')
+            );
+            if (textChild) {
+              const childClassList = Array.from(textChild.classList);
+              for (const className of childClassList) {
+                if (!fcClass && /^fc[0-9a-f]+$/i.test(className)) {
+                  fcClass = className;
+                }
+                if (!fsClass && /^fs[0-9a-f]+$/i.test(className)) {
+                  fsClass = className;
+                }
+              }
+            }
+          }
+        }
+        
+        return { fcClass, fsClass };
       }
 
       function highlightElement(element) {
@@ -85,8 +135,17 @@ export function generateIframeScript(): string {
           const parent = selectedElement.parentElement;
           highlightElement(parent);
           const path = getElementPath(parent);
+          const { fcClass, fsClass } = extractElementClasses(parent);
+          
           console.log("Parent selected, new path:", path);
-          window.parent.postMessage({ type: "ELEMENT_SELECTED", path }, "*");
+          console.log("Parent classes - fc:", fcClass, "fs:", fsClass);
+          
+          window.parent.postMessage({ 
+            type: "ELEMENT_SELECTED", 
+            path,
+            fcClass,
+            fsClass
+          }, "*");
         }
       }
 
@@ -143,6 +202,119 @@ export function generateIframeScript(): string {
         
         return false;
       }
+
+      // Drag-and-drop state
+      let isDragging = false;
+      let isPotentialDrag = false;
+      let dragStartX = 0;
+      let dragStartY = 0;
+      let dragElement = null;
+      let originalPosition = { top: 0, left: 0 };
+
+      // Mouse down - mark potential drag start (but don't prevent click yet)
+      document.addEventListener("mousedown", function(e) {
+        if (selectedElement && e.button === 0) { // Left click only
+          // Check if clicking on the selected element or its children
+          if (e.target === selectedElement || selectedElement.contains(e.target)) {
+            // Don't prevent default yet - allow click to work
+            isPotentialDrag = true;
+            dragStartX = e.clientX;
+            dragStartY = e.clientY;
+            dragElement = selectedElement;
+
+            // Get current computed position
+            const style = window.getComputedStyle(dragElement);
+            const transform = style.transform;
+            
+            // Parse transform matrix if exists
+            if (transform && transform !== 'none') {
+              const matrix = transform.match(/matrix\\(([^)]+)\\)/);
+              if (matrix) {
+                const values = matrix[1].split(',').map(parseFloat);
+                originalPosition.left = values[4] || 0;
+                originalPosition.top = values[5] || 0;
+              }
+            } else {
+              originalPosition.left = parseFloat(style.left) || 0;
+              originalPosition.top = parseFloat(style.top) || 0;
+            }
+          }
+        }
+      }, true);
+
+      // Mouse move - check if drag threshold exceeded, then start dragging
+      document.addEventListener("mousemove", function(e) {
+        // If potential drag, check if moved enough to start actual drag (5px threshold)
+        if (isPotentialDrag && !isDragging && dragElement) {
+          const deltaX = e.clientX - dragStartX;
+          const deltaY = e.clientY - dragStartY;
+          const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+          
+          if (distance > 5) {
+            // Start actual drag
+            isDragging = true;
+            isPotentialDrag = false;
+            
+            dragElement.style.cursor = 'grabbing';
+            dragElement.style.opacity = '0.7';
+            dragElement.style.zIndex = '9999';
+            
+            console.log("Drag started on element", dragElement.tagName);
+          }
+        }
+        
+        // Perform drag movement
+        if (isDragging && dragElement) {
+          e.preventDefault();
+          
+          const deltaX = e.clientX - dragStartX;
+          const deltaY = e.clientY - dragStartY;
+          
+          // Apply transform for smooth movement
+          const newLeft = originalPosition.left + deltaX;
+          const newTop = originalPosition.top + deltaY;
+          
+          dragElement.style.transform = \`translate(\${newLeft}px, \${newTop}px)\`;
+          dragElement.style.position = 'relative';
+        }
+      }, true);
+
+      // Mouse up - end drag or allow click
+      document.addEventListener("mouseup", function(e) {
+        if (isDragging && dragElement) {
+          e.preventDefault();
+          e.stopPropagation(); // Prevent click event when dragging
+          
+          const deltaX = e.clientX - dragStartX;
+          const deltaY = e.clientY - dragStartY;
+          
+          // Restore visual state
+          dragElement.style.cursor = '';
+          dragElement.style.opacity = '';
+          dragElement.style.zIndex = '';
+          
+          // Send update for actual movement
+          const path = getElementPath(dragElement);
+          console.log("Drag ended, moved by:", deltaX, deltaY, "path:", path);
+          
+          // Send drag complete message with delta
+          window.parent.postMessage({ 
+            type: "DRAG_MOVE", 
+            path, 
+            deltaX, 
+            deltaY 
+          }, "*");
+          
+          isDragging = false;
+          isPotentialDrag = false;
+          dragElement = null;
+        } else if (isPotentialDrag) {
+          // Was potential drag but didn't move enough - let click event handle it
+          console.log("Click detected (no drag movement)");
+          isPotentialDrag = false;
+          dragElement = null;
+        }
+      }, true);
 
       // Keyboard shortcuts
       document.addEventListener("keydown", function(e) {
@@ -213,10 +385,12 @@ export function generateIframeScript(): string {
       // Dynamically add/remove hover class based on whether element is selectable
       document.addEventListener('mouseover', function(e) {
         const target = e.target;
-        // Don't add hover class to body, html, or global containers
+        // Don't add hover class to body, html, global containers, or currently selected element
         if (target && 
             target !== document.body && 
             target !== document.documentElement &&
+            target !== selectedElement &&
+            !target.classList.contains('pdf-editor-selected') &&
             !isGlobalContainer(target) && 
             hasActualContent(target)) {
           target.classList.add('pdf-editor-hoverable');
@@ -367,10 +541,19 @@ export function generateIframeScript(): string {
         
         highlightElement(target);
         const path = getElementPath(target);
+        const { fcClass, fsClass } = extractElementClasses(target);
+        
         console.log("Element path:", path);
+        console.log("Element classes - fc:", fcClass, "fs:", fsClass);
         console.log("Sending message to parent with path:", path);
         console.log("💡 Shortcuts: 'I' = Insert <p>, 'P' = Parent, '↑' = Move Up, '↓' = Move Down, 'Delete' = Remove, 'ESC' = Deselect");
-        window.parent.postMessage({ type: "ELEMENT_SELECTED", path }, "*");
+        
+        window.parent.postMessage({ 
+          type: "ELEMENT_SELECTED", 
+          path,
+          fcClass,
+          fsClass
+        }, "*");
       }, true);
     })();
   `;
@@ -412,7 +595,11 @@ export function createMessageHandler(handlers: MessageHandlers) {
     switch (event.data.type) {
       case "ELEMENT_SELECTED":
         console.log("Element selected, path:", event.data.path);
-        handlers.onElementSelected(event.data.path);
+        const elementInfo = {
+          fcClass: event.data.fcClass || null,
+          fsClass: event.data.fsClass || null,
+        };
+        handlers.onElementSelected(event.data.path, elementInfo);
         break;
 
       case "INSERT_ELEMENT":
@@ -462,6 +649,22 @@ export function createMessageHandler(handlers: MessageHandlers) {
           event.data.path
         );
         handlers.onDeleteElement(event.data.path);
+        break;
+
+      case "DRAG_MOVE":
+        console.log(
+          "Drag move completed, path:",
+          event.data.path,
+          "deltaX:",
+          event.data.deltaX,
+          "deltaY:",
+          event.data.deltaY
+        );
+        handlers.onDragMove(
+          event.data.path,
+          event.data.deltaX,
+          event.data.deltaY
+        );
         break;
 
       default:
