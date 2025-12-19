@@ -2,6 +2,37 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased] - 2025-12-19
+
+### Enhanced - PDF to DOCX Conversion with Image Support
+
+#### 🎨 Multi-Page PDF Image Extraction
+- **`src/lib/htmlToFormattedDocx.ts`**: Major refactor to support images in DOCX conversion
+  - Added `dataUriToBuffer()`: Converts base64 data URIs to Buffer for image embedding
+  - Extracts images from pdf2htmlEX background-image divs (`.bi` elements)
+  - Automatically detects image dimensions from CSS classes and inline styles
+  - Scales images to fit page dimensions while maintaining aspect ratio
+  - Processes each PDF page as a separate DOCX section with proper page dimensions
+  - Extracts both images and text content from multi-page PDFs
+  - Added comprehensive logging for image extraction debugging
+  - Fallback to text-only extraction if HTML conversion fails
+
+#### 🔍 DOCX File Validation
+- **`src/app/api/convert/pdf-to-docx/route.ts`**: Added robust output validation
+  - Verifies conversion returns a Buffer object
+  - Checks for valid DOCX ZIP signature (PK bytes)
+  - Prevents returning corrupt or invalid DOCX files
+  - Enhanced error messages with buffer inspection
+
+#### ✅ Frontend Conversion Validation
+- **`src/app/text-converter/hooks/useFileConversions.ts`**: Added content-type verification
+  - Validates server responses are actually DOCX files before processing
+  - Checks for `wordprocessingml` or `application/octet-stream` content-type
+  - Prevents treating error responses (HTML/JSON) as valid conversions
+  - Provides detailed error messages with response preview
+  - Applied to both PDF→DOCX and HTML→DOCX conversion paths
+  - Code formatting improvements (consistent quote style)
+
 ## [Unreleased] - 2025-12-10
 
 ### Added - Enhanced Input Validation & Security Hardening

@@ -92,6 +92,28 @@ export async function POST(req: Request) {
           // Convert HTML to formatted DOCX
           docxBuffer = await convertHtmlToFormattedDocx(htmlContent);
 
+          // Verify we got a valid buffer
+          if (!Buffer.isBuffer(docxBuffer)) {
+            throw new Error(
+              "convertHtmlToFormattedDocx did not return a Buffer"
+            );
+          }
+
+          // Verify it's actually a DOCX file (should start with PK zip signature)
+          if (
+            docxBuffer.length < 4 ||
+            docxBuffer[0] !== 0x50 ||
+            docxBuffer[1] !== 0x4b
+          ) {
+            console.error(
+              "Invalid DOCX buffer - first bytes:",
+              docxBuffer.slice(0, 20)
+            );
+            throw new Error(
+              "Generated file is not a valid DOCX (missing ZIP signature)"
+            );
+          }
+
           console.log(
             "✓ PDF→DOCX conversion successful via HTML (formatting preserved)"
           );
