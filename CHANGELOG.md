@@ -4,6 +4,10 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased] - 2025-12-19
 
+### Fixed - DOCX Fidelity & Upload Flow
+- **`src/lib/htmlToFormattedDocx.ts`**: Default fonts now inherit from HTML body (or fall back to Arial 11pt); underline parsing honors `text-decoration: none`; paragraph spacing now respects original vertical gaps for intentional breaks.
+- **`src/app/text-converter/page.tsx`**: UI now shows only "Upload file" until upload completes, preventing premature conversions.
+
 ### Enhanced - PDF to DOCX Conversion with Image Support
 
 #### 🎨 Multi-Page PDF Image Extraction

@@ -26,11 +26,12 @@ const onDragLeave = (e: React.DragEvent<HTMLDivElement>) => { e.preventDefault()
 const startConversion = (itemId: string, target: TargetFormat) => {
 const item: UploadedItem | undefined = items.find((i: UploadedItem) => i.id === itemId);
 if (!item) return;
-if (item.isPdf && item.status === 'idle') {
-void uploadPdf(item).then(() => convert(item, target));
-} else {
-void convert(item, target);
-}
+  if (item.status !== 'done') {
+    setError('Please upload and wait for completion before converting');
+    setTimeout(() => setError(null), 3000);
+    return;
+  }
+  void convert(item, target);
 };
 
 return (
@@ -70,6 +71,8 @@ onChange={onFilesSelected}
         <div style={{ display: 'grid', gap: '0.75rem' }}>
           {items.map((item: UploadedItem) => {
             const itemResults: ConversionResult[] = results.filter((r: ConversionResult) => r.id === item.id);
+            const canConvert = item.status === 'done';
+            const isBusy = busyIds.includes(item.id);
             return (
               <div key={item.id} style={{ border: '1px solid var(--border-color)', padding: '0.75rem', background: 'var(--foreground)' }}>
                 <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom: 8 }}>
@@ -81,23 +84,39 @@ onChange={onFilesSelected}
                   </div>
                 </div>
                 <div style={{ display:'flex', flexWrap:'wrap', gap:8, marginBottom:8 }}>
-                  {['html','docx','txt'].map(fmt => (
+                  {item.status !== 'done' ? (
                     <button
-                      key={fmt}
-                      disabled={busyIds.includes(item.id)}
                       className={styles.ctaButtonIframe}
                       type="button"
-                      onClick={() => startConversion(item.id, fmt as TargetFormat)}
-                    >{fmt.toUpperCase()}</button>
-                  ))}
-                  <button
-                    className={styles.ctaButtonIframe}
-                    type="button"
-                    disabled={busyIds.includes(item.id)}
-                    onClick={() => removeItem(item.id)}
-                  >Remove</button>
+                      disabled={item.status === 'uploading' || isBusy}
+                      onClick={() => uploadPdf(item)}
+                    >{item.status === 'uploading' ? 'Uploading…' : 'Upload file'}</button>
+                  ) : (
+                    <>
+                      {['html','docx','txt'].map(fmt => {
+                        const needsHtml = item.isPdf && fmt === 'html' && !item.htmlContent;
+                        const isDisabled = isBusy || item.status === 'uploading' || item.status === 'error' || !canConvert;
+                        return (
+                          <button
+                            key={fmt}
+                            disabled={isDisabled}
+                            className={styles.ctaButtonIframe}
+                            type="button"
+                            onClick={() => startConversion(item.id, fmt as TargetFormat)}
+                            title={!canConvert ? 'Upload file before converting' : needsHtml ? 'Upload PDF first to convert to HTML' : undefined}
+                          >{fmt.toUpperCase()}</button>
+                        );
+                      })}
+                      <button
+                        className={styles.ctaButtonIframe}
+                        type="button"
+                        disabled={busyIds.includes(item.id)}
+                        onClick={() => removeItem(item.id)}
+                      >Remove</button>
+                    </>
+                  )}
                 </div>
-                {itemResults.length > 0 && (
+                {canConvert && itemResults.length > 0 && (
                   <div style={{ display:'flex', flexWrap:'wrap', gap:8 }}>
                     {itemResults.map((r: ConversionResult) => (
                       <div key={r.target} style={{ border:'1px solid var(--border-color)', padding:6 }}>
