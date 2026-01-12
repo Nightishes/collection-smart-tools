@@ -339,6 +339,10 @@ export function modifyHtml(
 
   // User-created/modified elements should have higher z-index than text elements
   // This ensures inserted and moved elements always appear in front
+  // Use both class-based and style attribute selectors for reliability
+  styleRules.push(
+    `.user-element{z-index:200!important;position:relative!important}`
+  );
   styleRules.push(
     `[style*="z-index: 200"]{z-index:200!important;position:relative!important}`
   );
@@ -599,7 +603,14 @@ export function insertElement(
       safeContent.substring(0, 50)
     );
 
-    // Apply custom styles if provided (override defaults)
+    // User-created/modified elements should have high z-index (200) to appear above text elements (100)
+    // Set these FIRST as defaults, then allow custom styles to override if needed
+    newElement.style.setProperty("z-index", "200");
+    newElement.style.setProperty("position", "relative");
+    newElement.classList.add("user-element");
+    console.log("insertElement: Set z-index:200 and user-element class");
+
+    // Apply custom styles if provided (can override defaults)
     if (styles) {
       Object.entries(styles).forEach(([key, value]) => {
         // Validate style property names (basic sanitization)
@@ -608,11 +619,6 @@ export function insertElement(
       });
       console.log("insertElement: Applied custom styles to element");
     }
-
-    // User-created/modified elements should have high z-index (200) to appear above text elements (100)
-    newElement.style.setProperty("z-index", "200");
-    newElement.style.setProperty("position", "relative");
-    console.log("insertElement: Set z-index:200 for new user-created element");
 
     // Insert after current element
     if (current.nextSibling) {
