@@ -340,11 +340,12 @@ export function modifyHtml(
   // User-created/modified elements should have higher z-index than text elements
   // This ensures inserted and moved elements always appear in front
   // Use both class-based and style attribute selectors for reliability
+  // MUST use position:absolute (not relative) to work with pdf2htmlEX's absolute positioning
   styleRules.push(
-    `.user-element{z-index:200!important;position:relative!important}`
+    `.user-element{z-index:200!important;position:absolute!important}`
   );
   styleRules.push(
-    `[style*="z-index: 200"]{z-index:200!important;position:relative!important}`
+    `[style*="z-index: 200"]{z-index:200!important;position:absolute!important}`
   );
 
   // Remove any inline user-select:none from .t elements to ensure text selection works
@@ -605,10 +606,11 @@ export function insertElement(
 
     // User-created/modified elements should have high z-index (200) to appear above text elements (100)
     // Set these FIRST as defaults, then allow custom styles to override if needed
+    // MUST use position:absolute (not relative) to work with pdf2htmlEX's absolute positioning
     newElement.style.setProperty("z-index", "200");
-    newElement.style.setProperty("position", "relative");
+    newElement.style.setProperty("position", "absolute");
     newElement.classList.add("user-element");
-    console.log("insertElement: Set z-index:200 and user-element class");
+    console.log("insertElement: Set z-index:200, position:absolute, and user-element class");
 
     // Apply custom styles if provided (can override defaults)
     if (styles) {
