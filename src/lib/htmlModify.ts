@@ -314,15 +314,16 @@ export function modifyHtml(
 
   // Make all text elements selectable and clickable (override pdf2htmlEX's user-select:none)
   // Also ensure they are visible and not hidden by opacity or visibility
+  // Text elements should appear in front of background images
   styleRules.push(
-    `.t{user-select:text!important;cursor:text!important;pointer-events:auto!important;opacity:1!important;visibility:visible!important}`
+    `.t{user-select:text!important;cursor:text!important;pointer-events:auto!important;opacity:1!important;visibility:visible!important;position:relative!important;z-index:100!important}`
   );
   // Ensure child spans inside .t are also clickable and not blocking interaction
   styleRules.push(
     `.t *{user-select:text!important;pointer-events:auto!important;opacity:1!important;visibility:visible!important}`
   );
   styleRules.push(
-    `.ocr-text{user-select:text!important;cursor:text!important;z-index:10!important;pointer-events:auto!important;opacity:1!important;visibility:visible!important}`
+    `.ocr-text{user-select:text!important;cursor:text!important;z-index:100!important;pointer-events:auto!important;opacity:1!important;visibility:visible!important;position:relative!important}`
   );
   // Ensure child spans inside .ocr-text are also clickable
   styleRules.push(
@@ -342,9 +343,9 @@ export function modifyHtml(
   );
 
   // DEBUG: Visualize background images with blue overlay to see what OCR sees
-  // Add CSS to show all .bi (background image) elements with a blue semi-transparent overlay
+  // Background images should appear BEHIND text elements (z-index:5 is lower than .t z-index:100)
   styleRules.push(
-    `.bi{position:relative!important}.bi::after{content:''!important;position:absolute!important;top:0!important;left:0!important;right:0!important;bottom:0!important;background:rgba(0,100,255,0.3)!important;pointer-events:none!important;z-index:5!important}`
+    `.bi{position:relative!important;z-index:1!important}.bi::after{content:''!important;position:absolute!important;top:0!important;left:0!important;right:0!important;bottom:0!important;background:rgba(0,100,255,0.3)!important;pointer-events:none!important;z-index:1!important}`
   );
 
   // Search for all .fcX{color:transparent|white|#fff|#ffffff} patterns directly in the HTML

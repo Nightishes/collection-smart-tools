@@ -5,7 +5,9 @@ All notable changes to this project will be documented in this file.
 ## [Unreleased] - 2026-01-12
 
 ### ✅ Fixed - Text Selection & Element Interaction
+
 - **`src/lib/htmlModify.ts`**: Fixed text selection on `.t` elements containing child `span`s
+
   - Added CSS rules for child elements: `.t *` with `user-select:text!important`, `pointer-events:auto!important`
   - Ensures clicks propagate to text content through container hierarchy
   - Added container (`c`) click passthrough: `pointer-events:none` on `.c` with explicit `pointer-events:auto` on child `.t`
@@ -13,6 +15,7 @@ All notable changes to this project will be documented in this file.
   - Text elements now properly selected and editable in iframe
 
 - **`src/app/pdf-modifier/utils/iframeScripts.ts`**: Fixed SyntaxError in injected JavaScript
+
   - Removed TypeScript type assertions (`as HTMLElement`) from template strings
   - Changed function type annotations from `(el: HTMLElement | null): boolean =>` to `(el) =>`
   - JavaScript injected into iframe now contains only valid JS syntax (no TypeScript)
@@ -24,7 +27,9 @@ All notable changes to this project will be documented in this file.
   - Ensures new PDF loads use original HTML, not previously-enabled reorganization
 
 ### Enhanced - OCR Integration & Background Image Support
+
 - **`src/lib/ocr.ts`**: Full OCR pipeline for extracting text from background images
+
   - `runOCR()`: Executes Tesseract in Docker with hOCR output format for word positioning
   - `parseHOCR()`: Parses hOCR to extract word positions and confidence scores
   - `extractBackgroundImage()`: Converts data URIs to PNG files for OCR processing
@@ -34,6 +39,7 @@ All notable changes to this project will be documented in this file.
   - `boxesOverlap()`: Detects overlapping text areas with 30% area threshold
 
 - **`src/app/api/upload/helpers/convert.ts`**: Integrated OCR post-conversion
+
   - Added `processHtmlWithOCR()` call after pdf2htmlEX conversion
   - OCR processes up to 10 background images automatically
   - Logs word counts and skipped duplicates
@@ -43,26 +49,32 @@ All notable changes to this project will be documented in this file.
   - Returns modified HTML with OCR text elements inserted
 
 ### Improved - PDF Conversion & Docker
+
 - **`scripts/convert-html-to-pdf.js`**: Enhanced Puppeteer configuration
+
   - Added `--disable-dev-shm-usage` for memory-constrained environments
   - Added `--disable-gpu` for better stability
   - Changed waitUntil from `networkidle0` to `domcontentloaded` for faster conversion
   - Increased timeout to 60 seconds with 30 second page content timeout
 
 - **`Dockerfile.puppeteer`**: Fixed cache directory setup
+
   - Cache directory `/home/appuser/.cache` now created during build
   - Puppeteer browser installation moved to USER context (appuser)
   - Ensures proper permissions for cache directories
 
 - **`package.json`**: Updated dependencies
+
   - Upgraded `pdf-parse` from `1.1.1` to `2.4.5` with new API (`PDFParse` class-based)
   - Added docker build tag specification (`:latest`)
 
 - **`src/app/api/convert/pdf-to-docx/route.ts`**: Updated for pdf-parse 2.x API
+
   - Changed from `PDFParser(buffer)` to `new PDFParser({ data: buffer }).parse()`
   - Handles new parser class-based interface
 
 - **`src/app/api/convert/pdf-to-txt/route.ts`**: Updated for pdf-parse 2.x API
+
   - Changed from `pdfParse(buf)` to `new PDFParse({ data: buf }).parse()`
 
 - **`src/app/api/upload/html/convert-to-pdf/route.ts`**: Enhanced Docker error handling
@@ -73,12 +85,14 @@ All notable changes to this project will be documented in this file.
 ## [Unreleased] - 2025-12-19
 
 ### Fixed - DOCX Fidelity & Upload Flow
+
 - **`src/lib/htmlToFormattedDocx.ts`**: Default fonts now inherit from HTML body (or fall back to Arial 11pt); underline parsing honors `text-decoration: none`; paragraph spacing now respects original vertical gaps for intentional breaks.
 - **`src/app/text-converter/page.tsx`**: UI now shows only "Upload file" until upload completes, preventing premature conversions.
 
 ### Enhanced - PDF to DOCX Conversion with Image Support
 
 #### 🎨 Multi-Page PDF Image Extraction
+
 - **`src/lib/htmlToFormattedDocx.ts`**: Major refactor to support images in DOCX conversion
   - Added `dataUriToBuffer()`: Converts base64 data URIs to Buffer for image embedding
   - Extracts images from pdf2htmlEX background-image divs (`.bi` elements)
@@ -90,6 +104,7 @@ All notable changes to this project will be documented in this file.
   - Fallback to text-only extraction if HTML conversion fails
 
 #### 🔍 DOCX File Validation
+
 - **`src/app/api/convert/pdf-to-docx/route.ts`**: Added robust output validation
   - Verifies conversion returns a Buffer object
   - Checks for valid DOCX ZIP signature (PK bytes)
@@ -97,6 +112,7 @@ All notable changes to this project will be documented in this file.
   - Enhanced error messages with buffer inspection
 
 #### ✅ Frontend Conversion Validation
+
 - **`src/app/text-converter/hooks/useFileConversions.ts`**: Added content-type verification
   - Validates server responses are actually DOCX files before processing
   - Checks for `wordprocessingml` or `application/octet-stream` content-type

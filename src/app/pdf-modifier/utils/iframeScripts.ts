@@ -33,6 +33,8 @@ export function generateIframeScript(): string {
           outline: 3px solid #ff0000 !important;
           background-color: rgba(255, 0, 0, 0.15) !important;
           cursor: grab !important;
+          position: relative !important;
+          z-index: 1000 !important;
         }
         .pdf-editor-hoverable {
           cursor: pointer !important;
@@ -45,6 +47,7 @@ export function generateIframeScript(): string {
         .pdf-editor-selected.pdf-editor-hoverable {
           outline: 3px solid #ff0000 !important;
           background-color: rgba(255, 0, 0, 0.15) !important;
+          z-index: 1000 !important;
         }
       \`;
       document.head.appendChild(style);

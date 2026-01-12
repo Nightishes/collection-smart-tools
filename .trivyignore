@@ -1,9 +1,13 @@
 # Trivy ignore file for known vulnerabilities
+
 # This is used by the Docker Image Security Scan workflow
 
 # EOL packages in Ubuntu 22.04 base image
+
 # These have no fixes available - consider upgrading base image
+
 # when maintainers release updates
 
 # Common false positives and low-severity issues
+
 # Only suppress CRITICAL and HIGH severity vulnerabilities
