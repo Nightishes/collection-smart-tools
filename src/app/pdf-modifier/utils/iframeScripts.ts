@@ -52,7 +52,21 @@ export function generateIframeScript(): string {
       function getElementPath(element) {
         const path = [];
         let current = element;
-        while (current && current !== document.body) {
+        let pageContainer = null;
+        
+        // First, find the page container (.pf1, .pf2, etc.)
+        let temp = element;
+        while (temp && temp !== document.body) {
+          if (temp.id && temp.id.match(/^pf\d+$/)) {
+            pageContainer = temp;
+            break;
+          }
+          temp = temp.parentElement;
+        }
+        
+        // Build path from element up to page container (or body if no page)
+        const stopAt = pageContainer || document.body;
+        while (current && current !== stopAt && current !== document.body) {
           const parent = current.parentElement;
           if (parent) {
             const children = Array.from(parent.children);
@@ -62,6 +76,12 @@ export function generateIframeScript(): string {
             break;
           }
         }
+        
+        // Add page ID to path for multi-page support
+        if (pageContainer && pageContainer.id) {
+          path.unshift(pageContainer.id);
+        }
+        
         return path;
       }
       

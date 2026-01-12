@@ -32,6 +32,40 @@ export type ModifyResult = {
   styleInfo: StyleInfo;
 };
 
+// Navigate to element by path, handling page IDs (pf1, pf2, etc) for multi-page support
+function navigateByPath(bodyContainer: Element, selectorPath: (number | string)[]): Element | null {
+  let current: Element | null = bodyContainer;
+  
+  for (let i = 0; i < selectorPath.length; i++) {
+    if (!current) return null;
+    
+    const pathSegment = selectorPath[i];
+    
+    // If path segment is a string (page ID like "pf1"), find element by ID
+    if (typeof pathSegment === 'string') {
+      const pageElement = bodyContainer.ownerDocument?.getElementById(pathSegment);
+      if (pageElement) {
+        current = pageElement;
+      } else {
+        console.log(`navigateByPath: Could not find element with ID ${pathSegment}`);
+        return null;
+      }
+    } else {
+      // Numeric index: navigate through children
+      const index = pathSegment as number;
+      const children: Element[] = Array.from(current.children);
+      if (index >= 0 && index < children.length) {
+        current = children[index];
+      } else {
+        console.log(`navigateByPath: Invalid index ${index} at step ${i}, children count: ${children.length}`);
+        return null;
+      }
+    }
+  }
+  
+  return current;
+}
+
 // Normalizers for extracted style values so UI and generated CSS are consistent
 function normalizeColor(
   raw: string | undefined | null
@@ -330,7 +364,7 @@ export function modifyHtml(
  */
 export function insertElement(
   html: string,
-  selectorPath: number[],
+  selectorPath: (number | string)[],
   elementType: string = "p",
   content: string = "New text",
   styles?: Record<string, string>
@@ -430,22 +464,8 @@ export function insertElement(
   bodyContainer.innerHTML = bodyContent;
   console.log("insertElement: Parsed body into container");
 
-  // Navigate to target element
-  let current: Element | null = bodyContainer;
-  for (let i = 0; i < selectorPath.length; i++) {
-    const index = selectorPath[i];
-    if (!current) {
-      console.log(`insertElement: Current is null at step ${i}`);
-      return html;
-    }
-    const children: Element[] = Array.from(current.children);
-    if (index >= 0 && index < children.length) {
-      current = children[index];
-    } else {
-      console.log(`insertElement: Invalid index ${index} at step ${i}`);
-      return html;
-    }
-  }
+  // Navigate to target element using multi-page aware path navigation
+  let current = navigateByPath(bodyContainer, selectorPath);
 
   // Create new element
   if (current && current.parentElement) {
@@ -581,7 +601,7 @@ function escapeHtml(text: string): string {
  */
 export function moveElement(
   html: string,
-  selectorPath: number[],
+  selectorPath: (number | string)[],
   direction: "up" | "down" | "left" | "right",
   moveDistance: number = 15
 ): string {
@@ -598,18 +618,9 @@ export function moveElement(
   const bodyContainer = document.createElement("div");
   bodyContainer.innerHTML = bodyContent;
 
-  // Navigate to target element
-  let current: Element | null = bodyContainer;
-  for (let i = 0; i < selectorPath.length; i++) {
-    const index = selectorPath[i];
-    if (!current) return html;
-    const children: Element[] = Array.from(current.children);
-    if (index >= 0 && index < children.length) {
-      current = children[index];
-    } else {
-      return html;
-    }
-  }
+  // Navigate to target element using multi-page aware path navigation
+  let current = navigateByPath(bodyContainer, selectorPath);
+  if (!current) return html;
 
   // Move the element by adjusting its absolute position
   if (current instanceof HTMLElement) {
@@ -800,7 +811,7 @@ export function moveElement(
  */
 export function dragMoveElement(
   html: string,
-  selectorPath: number[],
+  selectorPath: (number | string)[],
   deltaX: number,
   deltaY: number
 ): string {
@@ -817,18 +828,9 @@ export function dragMoveElement(
   const bodyContainer = document.createElement("div");
   bodyContainer.innerHTML = bodyContent;
 
-  // Navigate to target element
-  let current: Element | null = bodyContainer;
-  for (let i = 0; i < selectorPath.length; i++) {
-    const index = selectorPath[i];
-    if (!current) return html;
-    const children: Element[] = Array.from(current.children);
-    if (index >= 0 && index < children.length) {
-      current = children[index];
-    } else {
-      return html;
-    }
-  }
+  // Navigate to target element using multi-page aware path navigation
+  let current = navigateByPath(bodyContainer, selectorPath);
+  if (!current) return html;
 
   if (!(current instanceof HTMLElement)) {
     return html;
@@ -957,7 +959,7 @@ function updatePositionInCSS(
  * @param selectorPath - Array of indices representing path to element (e.g., [0, 2, 1])
  * @returns Modified HTML with element removed
  */
-export function deleteElement(html: string, selectorPath: number[]): string {
+export function deleteElement(html: string, selectorPath: (number | string)[]): string {
   try {
     if (!selectorPath || selectorPath.length === 0) {
       console.log("deleteElement: Empty selector path");
@@ -993,34 +995,14 @@ export function deleteElement(html: string, selectorPath: number[]): string {
     const bodyContainer = document.createElement("div");
     bodyContainer.innerHTML = bodyContent;
 
-    // Navigate to target element
-    let current: Element | null = bodyContainer;
-    for (let i = 0; i < selectorPath.length; i++) {
-      const index = selectorPath[i];
-      if (!current) {
-        console.log(`deleteElement: Current is null at step ${i}`);
-        return html;
-      }
-      const children: Element[] = Array.from(current.children);
-      console.log(
-        `deleteElement: Step ${i}, index ${index}, children count: ${children.length}`
-      );
-      if (index >= 0 && index < children.length) {
-        current = children[index];
-        console.log(
-          `deleteElement: Step ${i}, selected element:`,
-          current?.tagName,
-          current?.className
-        );
-      } else {
-        console.log(
-          `deleteElement: Invalid index ${index} at step ${i}, max: ${
-            children.length - 1
-          }`
-        );
-        return html;
-      }
+    // Navigate to target element using multi-page aware path navigation
+    let current = navigateByPath(bodyContainer, selectorPath);
+    if (!current) {
+      console.log("deleteElement: Could not navigate to element");
+      return html;
     }
+    
+    console.log("deleteElement: Selected element:", current?.tagName, current?.className);
 
     // Hide the element instead of deleting (better for pdf2htmlEX content)
     if (current && current instanceof HTMLElement) {
