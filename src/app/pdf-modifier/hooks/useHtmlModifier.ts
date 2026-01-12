@@ -266,12 +266,8 @@ export function useHtmlModifier() {
         workingCopyCache.current = text;
         console.log("Loaded HTML into memory:", text.length, "bytes");
 
-        // For initial display
-        setHtmlContent(text);
-        setModifiedHtml(text);
-
-        // Extract style info and image list for the editor controls
-        const { styleInfo: newStyleInfo, imageList: newImageList } = modifyHtml(
+        // Apply modifyHtml to get CSS modifications (text selection, z-index, etc.)
+        const { modifiedHtml: initialModified, styleInfo: newStyleInfo, imageList: newImageList } = modifyHtml(
           text,
           {
             ...options,
@@ -279,6 +275,11 @@ export function useHtmlModifier() {
             fsOverrides: fsOverrides,
           }
         );
+
+        // For initial display - use MODIFIED HTML with CSS enhancements
+        setHtmlContent(initialModified);
+        setModifiedHtml(initialModified);
+        
         setStyleInfo(newStyleInfo);
         setImageList(newImageList);
 
