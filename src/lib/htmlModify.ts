@@ -358,6 +358,10 @@ export function modifyHtml(
     `.bi{z-index:1!important;pointer-events:none!important}.bi::after{content:''!important;position:absolute!important;top:0!important;left:0!important;right:0!important;bottom:0!important;background:rgba(0,100,255,0.3)!important;pointer-events:none!important;z-index:1!important}`
   );
 
+  // Also ensure <img> tags inside the PDF don't intercept clicks or sit above text
+  // Some pdf2htmlEX outputs use <img> rather than .bi divs for embedded images
+  styleRules.push(`img{pointer-events:none!important;z-index:1!important}`);
+
   // Search for all .fcX{color:transparent|white|#fff|#ffffff} patterns directly in the HTML
   const problematicColorRegex =
     /\.fc(\d+)\s*\{[^}]*color\s*:\s*(transparent|white|#fff(?:fff)?)\s*[;}]/gi;
