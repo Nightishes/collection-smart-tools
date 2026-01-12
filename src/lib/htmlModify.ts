@@ -315,15 +315,16 @@ export function modifyHtml(
   // Make all text elements selectable and clickable (override pdf2htmlEX's user-select:none)
   // Also ensure they are visible and not hidden by opacity or visibility
   // Text elements should appear in front of background images
+  // IMPORTANT: Don't override position - pdf2htmlEX uses position:absolute for layout
   styleRules.push(
-    `.t{user-select:text!important;cursor:text!important;pointer-events:auto!important;opacity:1!important;visibility:visible!important;position:relative!important;z-index:100!important}`
+    `.t{user-select:text!important;cursor:text!important;pointer-events:auto!important;opacity:1!important;visibility:visible!important;z-index:100!important}`
   );
   // Ensure child spans inside .t are also clickable and not blocking interaction
   styleRules.push(
     `.t *{user-select:text!important;pointer-events:auto!important;opacity:1!important;visibility:visible!important}`
   );
   styleRules.push(
-    `.ocr-text{user-select:text!important;cursor:text!important;z-index:100!important;pointer-events:auto!important;opacity:1!important;visibility:visible!important;position:relative!important}`
+    `.ocr-text{user-select:text!important;cursor:text!important;z-index:100!important;pointer-events:auto!important;opacity:1!important;visibility:visible!important}`
   );
   // Ensure child spans inside .ocr-text are also clickable
   styleRules.push(
@@ -338,7 +339,9 @@ export function modifyHtml(
 
   // User-created/modified elements should have higher z-index than text elements
   // This ensures inserted and moved elements always appear in front
-  styleRules.push(`[style*="z-index: 200"]{z-index:200!important;position:relative!important}`);
+  styleRules.push(
+    `[style*="z-index: 200"]{z-index:200!important;position:relative!important}`
+  );
 
   // Remove any inline user-select:none from .t elements to ensure text selection works
   modified = modified.replace(
@@ -347,9 +350,10 @@ export function modifyHtml(
   );
 
   // DEBUG: Visualize background images with blue overlay to see what OCR sees
-  // Background images should appear BEHIND text elements (z-index:5 is lower than .t z-index:100)
+  // Background images should appear BEHIND text elements (z-index:1 is lower than .t z-index:100)
+  // Don't override position - pdf2htmlEX layout depends on absolute positioning
   styleRules.push(
-    `.bi{position:relative!important;z-index:1!important}.bi::after{content:''!important;position:absolute!important;top:0!important;left:0!important;right:0!important;bottom:0!important;background:rgba(0,100,255,0.3)!important;pointer-events:none!important;z-index:1!important}`
+    `.bi{z-index:1!important}.bi::after{content:''!important;position:absolute!important;top:0!important;left:0!important;right:0!important;bottom:0!important;background:rgba(0,100,255,0.3)!important;pointer-events:none!important;z-index:1!important}`
   );
 
   // Search for all .fcX{color:transparent|white|#fff|#ffffff} patterns directly in the HTML
