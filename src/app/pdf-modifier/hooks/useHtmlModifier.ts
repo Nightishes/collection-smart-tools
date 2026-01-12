@@ -267,19 +267,20 @@ export function useHtmlModifier() {
         console.log("Loaded HTML into memory:", text.length, "bytes");
 
         // Apply modifyHtml to get CSS modifications (text selection, z-index, etc.)
-        const { modifiedHtml: initialModified, styleInfo: newStyleInfo, imageList: newImageList } = modifyHtml(
-          text,
-          {
-            ...options,
-            fcOverrides: fcOverrides,
-            fsOverrides: fsOverrides,
-          }
-        );
+        const {
+          modifiedHtml: initialModified,
+          styleInfo: newStyleInfo,
+          imageList: newImageList,
+        } = modifyHtml(text, {
+          ...options,
+          fcOverrides: fcOverrides,
+          fsOverrides: fsOverrides,
+        });
 
         // For initial display - use MODIFIED HTML with CSS enhancements
         setHtmlContent(initialModified);
         setModifiedHtml(initialModified);
-        
+
         setStyleInfo(newStyleInfo);
         setImageList(newImageList);
 

@@ -352,8 +352,9 @@ export function modifyHtml(
   // DEBUG: Visualize background images with blue overlay to see what OCR sees
   // Background images should appear BEHIND text elements (z-index:1 is lower than .t z-index:100)
   // Don't override position - pdf2htmlEX layout depends on absolute positioning
+  // CRITICAL: Set pointer-events:none so images don't block clicks to text underneath
   styleRules.push(
-    `.bi{z-index:1!important}.bi::after{content:''!important;position:absolute!important;top:0!important;left:0!important;right:0!important;bottom:0!important;background:rgba(0,100,255,0.3)!important;pointer-events:none!important;z-index:1!important}`
+    `.bi{z-index:1!important;pointer-events:none!important}.bi::after{content:''!important;position:absolute!important;top:0!important;left:0!important;right:0!important;bottom:0!important;background:rgba(0,100,255,0.3)!important;pointer-events:none!important;z-index:1!important}`
   );
 
   // Search for all .fcX{color:transparent|white|#fff|#ffffff} patterns directly in the HTML
