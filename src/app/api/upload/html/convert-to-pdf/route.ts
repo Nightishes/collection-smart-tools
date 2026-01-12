@@ -153,6 +153,10 @@ html, body, div, span, p, h1, h2, h3, h4, h5, h6, img {
 
     await fs.writeFile(inPath, htmlWithPrint, "utf8");
 
+    // Verify the file was written successfully
+    const fileStats = await fs.stat(inPath);
+    console.log(`HTML file written: ${inPath} (${fileStats.size} bytes)`);
+
     // docker image name to use (build with Dockerfile.puppeteer)
     const dockerImage =
       process.env.PUPPETEER_DOCKER_IMAGE || "collection-tools-puppeteer";
@@ -164,21 +168,59 @@ html, body, div, span, p, h1, h2, h3, h4, h5, h6, img {
     const containerOut = `/data/${outName}`;
 
     // Run the container mounting uploads at /data (read-write) and invoking the script
-    // Use --network=none for security isolation
-    await execFile(
-      "docker",
-      [
-        "run",
-        "--rm",
-        "--network=none",
-        "-v",
-        `${uploads}:/data`,
-        dockerImage,
-        containerIn,
-        containerOut,
-      ],
-      { timeout: 120_000 }
+    // Note: --network=none removed as it can cause issues on Windows Docker Desktop
+    console.log(
+      `Starting Docker conversion: ${containerIn} -> ${containerOut}`
     );
+    try {
+      const { stdout, stderr } = await execFile(
+        "docker",
+        [
+          "run",
+          "--rm",
+          "-v",
+          `${uploads}:/data`,
+          dockerImage,
+          containerIn,
+          containerOut,
+        ],
+        {
+          timeout: 120_000,
+          maxBuffer: 10 * 1024 * 1024, // 10MB buffer for output
+        }
+      );
+
+      // Log Docker output for debugging
+      if (stdout) console.log("Docker stdout:", stdout);
+      if (stderr) console.error("Docker stderr:", stderr);
+      console.log("PDF conversion completed successfully");
+    } catch (dockerErr: any) {
+      console.error("Docker execution failed:", {
+        message: dockerErr.message,
+        stdout: dockerErr.stdout,
+        stderr: dockerErr.stderr,
+        code: dockerErr.code,
+        killed: dockerErr.killed,
+        signal: dockerErr.signal,
+      });
+
+      // Provide more specific error messages
+      let errorMsg = "PDF conversion failed";
+      if (dockerErr.killed || dockerErr.signal === "SIGTERM") {
+        errorMsg = "PDF conversion timed out after 120 seconds";
+      } else if (dockerErr.code === null) {
+        errorMsg =
+          "Docker command failed to execute (possibly timed out or killed)";
+      } else if (dockerErr.stderr) {
+        errorMsg = `PDF conversion failed: ${dockerErr.stderr}`;
+      } else if (dockerErr.stdout) {
+        errorMsg = `PDF conversion failed: ${dockerErr.stdout}`;
+      } else {
+        errorMsg = `PDF conversion failed: ${dockerErr.message}`;
+      }
+
+      throw new Error(errorMsg);
+    }
 
     // Read the generated PDF and return it
     const pdfBuf = await fs.readFile(outPath);

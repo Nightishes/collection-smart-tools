@@ -233,6 +233,28 @@ export function generateIframeScript(): string {
 
       // Mouse down - mark potential drag start (but don't prevent click yet)
       document.addEventListener("mousedown", function(e) {
+        // Don't interfere with text selection - check if clicking on text content
+        const target = e.target;
+        
+        // Check if target or any parent up to 3 levels is a text element
+        const isTextElement = (el) => {
+          let current = el;
+          let depth = 0;
+          while (current && depth < 3) {
+            if (current.classList && (current.classList.contains('t') || current.classList.contains('ocr-text'))) {
+              return true;
+            }
+            current = current.parentElement;
+            depth++;
+          }
+          return false;
+        };
+        
+        if (target && isTextElement(target)) {
+          // Let text selection happen naturally
+          return;
+        }
+
         if (selectedElement && e.button === 0) { // Left click only
           // Check if clicking on the selected element or its children
           if (e.target === selectedElement || selectedElement.contains(e.target)) {
@@ -286,6 +308,7 @@ export function generateIframeScript(): string {
         // Perform drag movement
         if (isDragging && dragElement) {
           e.preventDefault();
+          e.stopPropagation();
           
           const deltaX = e.clientX - dragStartX;
           const deltaY = e.clientY - dragStartY;
@@ -297,7 +320,7 @@ export function generateIframeScript(): string {
           dragElement.style.transform = \`translate(\${newLeft}px, \${newTop}px)\`;
           dragElement.style.position = 'relative';
         }
-      }, true);
+      }, false); // Changed to false - don't use capture phase for mousemove
 
       // Mouse up - end drag or allow click
       document.addEventListener("mouseup", function(e) {
@@ -519,19 +542,41 @@ export function generateIframeScript(): string {
       }
 
       document.addEventListener("click", function(e) {
+        // Don't prevent default on text elements - allow text selection
+        const target = e.target;
+        
+        // Check if target or any parent up to 3 levels is a text element
+        const isTextElement = (el) => {
+          let current = el;
+          let depth = 0;
+          while (current && depth < 3) {
+            if (current.classList && (current.classList.contains('t') || current.classList.contains('ocr-text'))) {
+              return true;
+            }
+            current = current.parentElement;
+            depth++;
+          }
+          return false;
+        };
+        
+        if (target && isTextElement(target)) {
+          // Allow default behavior for text selection
+          return;
+        }
+        
         e.preventDefault();
         e.stopPropagation();
         
         // Use elementFromPoint to get the element at click position
-        let target = document.elementFromPoint(e.clientX, e.clientY);
+        let clickTarget = document.elementFromPoint(e.clientX, e.clientY);
         
-        if (!target) {
+        if (!clickTarget) {
           console.log("⚠️ Click ignored: no element found");
           return;
         }
         
         // Never allow selecting global containers
-        if (isGlobalContainer(target)) {
+        if (isGlobalContainer(clickTarget)) {
           console.log("⚠️ Click ignored: global container");
           if (selectedElement) {
             selectedElement.classList.remove('pdf-editor-selected');
@@ -541,13 +586,13 @@ export function generateIframeScript(): string {
           return;
         }
         
-        console.log("Initial element clicked:", target.tagName, target.className, target.id);
+        console.log("Initial element clicked:", clickTarget.tagName, clickTarget.className, clickTarget.id);
         
         // Find the deepest non-container element
-        target = findDeepestElement(target, e.clientX, e.clientY);
+        clickTarget = findDeepestElement(clickTarget, e.clientX, e.clientY);
         
         // Final validation: must have actual content and not be a pure container
-        if (isGlobalContainer(target) || !hasActualContent(target)) {
+        if (isGlobalContainer(clickTarget) || !hasActualContent(clickTarget)) {
           console.log("⚠️ Element is a container or has no content - deselecting");
           if (selectedElement) {
             selectedElement.classList.remove('pdf-editor-selected');
@@ -557,11 +602,11 @@ export function generateIframeScript(): string {
           return;
         }
         
-        console.log("✓ Final selected element:", target.tagName, target.className, target.id);
+        console.log("✓ Final selected element:", clickTarget.tagName, clickTarget.className, clickTarget.id);
         
-        highlightElement(target);
-        const path = getElementPath(target);
-        const { fcClass, fsClass } = extractElementClasses(target);
+        highlightElement(clickTarget);
+        const path = getElementPath(clickTarget);
+        const { fcClass, fsClass } = extractElementClasses(clickTarget);
         
         console.log("Element path:", path);
         console.log("Element classes - fc:", fcClass, "fs:", fsClass);

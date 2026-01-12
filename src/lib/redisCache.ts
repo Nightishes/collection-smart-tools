@@ -90,11 +90,7 @@ class RedisCache {
   /**
    * Generic set operation with expiry
    */
-  async set(
-    key: string,
-    value: string,
-    ttlSeconds: number
-  ): Promise<boolean> {
+  async set(key: string, value: string, ttlSeconds: number): Promise<boolean> {
     if (!this.isAvailable()) return false;
 
     try {

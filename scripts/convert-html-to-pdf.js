@@ -22,7 +22,14 @@ const puppeteer = require("puppeteer");
     const a4HeightPx = 1123;
 
     const browser = await puppeteer.launch({
-      args: ["--no-sandbox", "--disable-setuid-sandbox"],
+      args: [
+        "--no-sandbox",
+        "--disable-setuid-sandbox",
+        "--disable-dev-shm-usage", // Overcome limited resource problems
+        "--disable-gpu",
+      ],
+      headless: true,
+      timeout: 60000,
     });
     const page = await browser.newPage();
 
@@ -32,8 +39,12 @@ const puppeteer = require("puppeteer");
     // Emulate print media to get print-specific CSS
     await page.emulateMediaType("print");
 
-    // Set content and wait for resources to settle (increased timeout for complex HTML)
-    await page.setContent(html, { waitUntil: "networkidle0", timeout: 120000 });
+    // Set content - use 'domcontentloaded' instead of 'networkidle0' to avoid hanging
+    // This is much faster and more reliable for self-contained HTML
+    await page.setContent(html, {
+      waitUntil: "domcontentloaded",
+      timeout: 30000,
+    });
 
     // Determine PDF dimensions - use exact A4 size with 5px bottom padding
     const pdfOptions = {

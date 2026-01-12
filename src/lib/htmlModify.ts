@@ -33,21 +33,27 @@ export type ModifyResult = {
 };
 
 // Navigate to element by path, handling page IDs (pf1, pf2, etc) for multi-page support
-function navigateByPath(bodyContainer: Element, selectorPath: (number | string)[]): Element | null {
+function navigateByPath(
+  bodyContainer: Element,
+  selectorPath: (number | string)[]
+): Element | null {
   let current: Element | null = bodyContainer;
-  
+
   for (let i = 0; i < selectorPath.length; i++) {
     if (!current) return null;
-    
+
     const pathSegment = selectorPath[i];
-    
+
     // If path segment is a string (page ID like "pf1"), find element by ID
-    if (typeof pathSegment === 'string') {
-      const pageElement = bodyContainer.ownerDocument?.getElementById(pathSegment);
+    if (typeof pathSegment === "string") {
+      const pageElement =
+        bodyContainer.ownerDocument?.getElementById(pathSegment);
       if (pageElement) {
         current = pageElement;
       } else {
-        console.log(`navigateByPath: Could not find element with ID ${pathSegment}`);
+        console.log(
+          `navigateByPath: Could not find element with ID ${pathSegment}`
+        );
         return null;
       }
     } else {
@@ -57,12 +63,14 @@ function navigateByPath(bodyContainer: Element, selectorPath: (number | string)[
       if (index >= 0 && index < children.length) {
         current = children[index];
       } else {
-        console.log(`navigateByPath: Invalid index ${index} at step ${i}, children count: ${children.length}`);
+        console.log(
+          `navigateByPath: Invalid index ${index} at step ${i}, children count: ${children.length}`
+        );
         return null;
       }
     }
   }
-  
+
   return current;
 }
 
@@ -160,6 +168,10 @@ export function modifyHtml(
   const imagesRemoved: string[] = [];
   const imageList: ImageInfo[] = [];
   let modified = html;
+
+  // Remove sourcemap comments to avoid devtools warnings
+  modified = modified.replace(/\/\/# sourceMappingURL=.*$/gm, "");
+  modified = modified.replace(/\/\*# sourceMappingURL=.*\*\//g, "");
 
   // Extract all <img> tags (these are actual embedded images)
   const imgRegex = /<img\b[^>]*\bsrc=(?:"([^"]*)"|'([^']*)'|([^\s>]+))[^>]*>/gi;
@@ -299,6 +311,41 @@ export function modifyHtml(
   // AUTO-FIX: Ensure text is always visible by setting default black color on text elements
   // Then override transparent/white font color classes specifically
   styleRules.push(`.t{color:#000000!important}`); // .t is the text class in pdf2htmlEX
+
+  // Make all text elements selectable and clickable (override pdf2htmlEX's user-select:none)
+  // Also ensure they are visible and not hidden by opacity or visibility
+  styleRules.push(
+    `.t{user-select:text!important;cursor:text!important;pointer-events:auto!important;opacity:1!important;visibility:visible!important}`
+  );
+  // Ensure child spans inside .t are also clickable and not blocking interaction
+  styleRules.push(
+    `.t *{user-select:text!important;pointer-events:auto!important;opacity:1!important;visibility:visible!important}`
+  );
+  styleRules.push(
+    `.ocr-text{user-select:text!important;cursor:text!important;z-index:10!important;pointer-events:auto!important;opacity:1!important;visibility:visible!important}`
+  );
+  // Ensure child spans inside .ocr-text are also clickable
+  styleRules.push(
+    `.ocr-text *{user-select:text!important;pointer-events:auto!important;opacity:1!important;visibility:visible!important}`
+  );
+
+  // Allow clicks to pass through container divs (.c) to text elements inside
+  // Use pointer-events:none so the container doesn't block clicks, but text remains visible
+  styleRules.push(`.c{pointer-events:none!important}`);
+  // Ensure .t text elements inside .c are still clickable by explicitly enabling pointer-events
+  styleRules.push(`.c .t{pointer-events:auto!important}`);
+
+  // Remove any inline user-select:none from .t elements to ensure text selection works
+  modified = modified.replace(
+    /(<div\s+class="[^"]*\bt\b[^"]*"[^>]*style="[^"]*?)user-select:\s*none\s*;?\s*([^"]*)"/g,
+    '$1$2"'
+  );
+
+  // DEBUG: Visualize background images with blue overlay to see what OCR sees
+  // Add CSS to show all .bi (background image) elements with a blue semi-transparent overlay
+  styleRules.push(
+    `.bi{position:relative!important}.bi::after{content:''!important;position:absolute!important;top:0!important;left:0!important;right:0!important;bottom:0!important;background:rgba(0,100,255,0.3)!important;pointer-events:none!important;z-index:5!important}`
+  );
 
   // Search for all .fcX{color:transparent|white|#fff|#ffffff} patterns directly in the HTML
   const problematicColorRegex =
@@ -465,7 +512,7 @@ export function insertElement(
   console.log("insertElement: Parsed body into container");
 
   // Navigate to target element using multi-page aware path navigation
-  let current = navigateByPath(bodyContainer, selectorPath);
+  const current = navigateByPath(bodyContainer, selectorPath);
 
   // Create new element
   if (current && current.parentElement) {
@@ -829,7 +876,7 @@ export function dragMoveElement(
   bodyContainer.innerHTML = bodyContent;
 
   // Navigate to target element using multi-page aware path navigation
-  let current = navigateByPath(bodyContainer, selectorPath);
+  const current = navigateByPath(bodyContainer, selectorPath);
   if (!current) return html;
 
   if (!(current instanceof HTMLElement)) {
@@ -959,7 +1006,10 @@ function updatePositionInCSS(
  * @param selectorPath - Array of indices representing path to element (e.g., [0, 2, 1])
  * @returns Modified HTML with element removed
  */
-export function deleteElement(html: string, selectorPath: (number | string)[]): string {
+export function deleteElement(
+  html: string,
+  selectorPath: (number | string)[]
+): string {
   try {
     if (!selectorPath || selectorPath.length === 0) {
       console.log("deleteElement: Empty selector path");
@@ -996,13 +1046,17 @@ export function deleteElement(html: string, selectorPath: (number | string)[]): 
     bodyContainer.innerHTML = bodyContent;
 
     // Navigate to target element using multi-page aware path navigation
-    let current = navigateByPath(bodyContainer, selectorPath);
+    const current = navigateByPath(bodyContainer, selectorPath);
     if (!current) {
       console.log("deleteElement: Could not navigate to element");
       return html;
     }
-    
-    console.log("deleteElement: Selected element:", current?.tagName, current?.className);
+
+    console.log(
+      "deleteElement: Selected element:",
+      current?.tagName,
+      current?.className
+    );
 
     // Hide the element instead of deleting (better for pdf2htmlEX content)
     if (current && current instanceof HTMLElement) {

@@ -51,13 +51,12 @@ WORKDIR /app
 
 # Create non-root user for security
 RUN groupadd -r appuser && useradd -r -g appuser -G audio,video appuser \
-    && mkdir -p /home/appuser/Downloads \
+    && mkdir -p /home/appuser/Downloads /home/appuser/.cache \
     && chown -R appuser:appuser /app /home/appuser
 
-# Install puppeteer and Chrome browser
+# Install puppeteer as root
 RUN npm install --no-audit --no-fund puppeteer@latest \
-    && npx puppeteer@latest browsers install chrome \
-    && chown -R appuser:appuser /app/node_modules /home/appuser
+    && chown -R appuser:appuser /app/node_modules
 
 # Copy the converter script
 COPY scripts/convert-html-to-pdf.js /app/convert-html-to-pdf.js
@@ -66,5 +65,8 @@ RUN chmod +x /app/convert-html-to-pdf.js \
 
 # Switch to non-root user
 USER appuser
+
+# Install Chrome as appuser so it goes into the correct cache directory
+RUN npx puppeteer browsers install chrome
 
 ENTRYPOINT ["node", "/app/convert-html-to-pdf.js"]

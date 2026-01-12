@@ -2,9 +2,10 @@ import { execFile as _execFile } from "child_process";
 import { promisify } from "util";
 import fs from "fs/promises";
 import path from "path";
-import pdfParse from "pdf-parse";
+import { PDFParse } from "pdf-parse";
 import redisCache from "@/lib/redisCache";
 import { hashFile } from "@/lib/fileHash";
+import { processHtmlWithOCR } from "@/lib/ocr";
 
 const execFile = promisify(_execFile);
 
@@ -287,6 +288,18 @@ export async function convertPdfToHtml(inputPdfPath: string): Promise<
         // Process images - remove local image references to avoid broken links
         const result = await processHtmlImages(outHtml);
 
+        // Run OCR on background images to extract text
+        try {
+          console.log("[OCR] Processing background images...");
+          const ocrResult = await processHtmlWithOCR(outHtml, 10);
+          console.log(
+            `[OCR] Added ${ocrResult.wordsAdded} words from ${ocrResult.imagesProcessed} images`
+          );
+        } catch (ocrErr) {
+          console.warn("[OCR] Failed to process images:", ocrErr);
+          // Continue even if OCR fails
+        }
+
         // Cache the converted HTML
         if (result.success) {
           try {
@@ -314,7 +327,8 @@ export async function convertPdfToHtml(inputPdfPath: string): Promise<
 
     // Fallback: extract text with formatting using pdf-parse
     const buf = await fs.readFile(inputAbs);
-    const data = await pdfParse(buf, {
+    const parser = new PDFParse({ data: buf });
+    const data = await parser.parse({
       // Enable getting raw text content with formatting
       pagerender: (pageData: unknown) => {
         const renderOptions = {

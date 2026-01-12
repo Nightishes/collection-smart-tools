@@ -2,6 +2,74 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased] - 2026-01-12
+
+### ✅ Fixed - Text Selection & Element Interaction
+- **`src/lib/htmlModify.ts`**: Fixed text selection on `.t` elements containing child `span`s
+  - Added CSS rules for child elements: `.t *` with `user-select:text!important`, `pointer-events:auto!important`
+  - Ensures clicks propagate to text content through container hierarchy
+  - Added container (`c`) click passthrough: `pointer-events:none` on `.c` with explicit `pointer-events:auto` on child `.t`
+  - Removed sourcemap comments to prevent devtools warnings
+  - Text elements now properly selected and editable in iframe
+
+- **`src/app/pdf-modifier/utils/iframeScripts.ts`**: Fixed SyntaxError in injected JavaScript
+  - Removed TypeScript type assertions (`as HTMLElement`) from template strings
+  - Changed function type annotations from `(el: HTMLElement | null): boolean =>` to `(el) =>`
+  - JavaScript injected into iframe now contains only valid JS syntax (no TypeScript)
+  - Fixed mousedown and click handlers to properly detect text elements up 3 parent levels
+
+- **`src/app/pdf-modifier/hooks/useHtmlModifier.ts`**: Fixed container reorganization auto-activation
+  - Changed default behavior to use original HTML instead of checking `options.reorganizeContainers`
+  - Container reorganization now OFF by default (prevents breaking PDFs on load)
+  - Ensures new PDF loads use original HTML, not previously-enabled reorganization
+
+### Enhanced - OCR Integration & Background Image Support
+- **`src/lib/ocr.ts`**: Full OCR pipeline for extracting text from background images
+  - `runOCR()`: Executes Tesseract in Docker with hOCR output format for word positioning
+  - `parseHOCR()`: Parses hOCR to extract word positions and confidence scores
+  - `extractBackgroundImage()`: Converts data URIs to PNG files for OCR processing
+  - `generateTextElements()`: Creates positioned `.t` divs matching pdf2htmlEX format
+  - `processHtmlWithOCR()`: Main function processing all background images with intelligent duplicate avoidance
+  - `parseExistingTextPositions()`: Analyzes existing text to prevent OCR adding duplicates
+  - `boxesOverlap()`: Detects overlapping text areas with 30% area threshold
+
+- **`src/app/api/upload/helpers/convert.ts`**: Integrated OCR post-conversion
+  - Added `processHtmlWithOCR()` call after pdf2htmlEX conversion
+  - OCR processes up to 10 background images automatically
+  - Logs word counts and skipped duplicates
+
+- **`src/app/api/upload/html/ocr/route.ts`**: Manual OCR trigger API endpoint
+  - POST `/api/upload/html/ocr` with file parameter
+  - Returns modified HTML with OCR text elements inserted
+
+### Improved - PDF Conversion & Docker
+- **`scripts/convert-html-to-pdf.js`**: Enhanced Puppeteer configuration
+  - Added `--disable-dev-shm-usage` for memory-constrained environments
+  - Added `--disable-gpu` for better stability
+  - Changed waitUntil from `networkidle0` to `domcontentloaded` for faster conversion
+  - Increased timeout to 60 seconds with 30 second page content timeout
+
+- **`Dockerfile.puppeteer`**: Fixed cache directory setup
+  - Cache directory `/home/appuser/.cache` now created during build
+  - Puppeteer browser installation moved to USER context (appuser)
+  - Ensures proper permissions for cache directories
+
+- **`package.json`**: Updated dependencies
+  - Upgraded `pdf-parse` from `1.1.1` to `2.4.5` with new API (`PDFParse` class-based)
+  - Added docker build tag specification (`:latest`)
+
+- **`src/app/api/convert/pdf-to-docx/route.ts`**: Updated for pdf-parse 2.x API
+  - Changed from `PDFParser(buffer)` to `new PDFParser({ data: buffer }).parse()`
+  - Handles new parser class-based interface
+
+- **`src/app/api/convert/pdf-to-txt/route.ts`**: Updated for pdf-parse 2.x API
+  - Changed from `pdfParse(buf)` to `new PDFParse({ data: buf }).parse()`
+
+- **`src/app/api/upload/html/convert-to-pdf/route.ts`**: Enhanced Docker error handling
+  - Improved error messages for Docker timeouts and execution failures
+  - Added file size verification before Puppeteer processing
+  - Better error context (stdout, stderr, signal, timeout info)
+
 ## [Unreleased] - 2025-12-19
 
 ### Fixed - DOCX Fidelity & Upload Flow

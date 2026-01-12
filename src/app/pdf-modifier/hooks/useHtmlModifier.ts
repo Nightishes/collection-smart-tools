@@ -248,10 +248,9 @@ export function useHtmlModifier() {
         const reorganizedText = reorganizeContainers(originalText);
         reorganizedHtmlCache.current = reorganizedText;
 
-        // Use the appropriate version based on current option
-        const text = options.reorganizeContainers
-          ? reorganizedText
-          : originalText;
+        // Always use the original (non-reorganized) version by default
+        // reorganizeContainers is OFF by default to prevent breaking PDFs
+        const text = originalText;
 
         // Reset both options to false when loading a new PDF
         setOptions((prev) => ({

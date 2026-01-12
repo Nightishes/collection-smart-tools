@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import path from "path";
 import fs from "fs/promises";
-import PDFParser from "pdf-parse";
+import { PDFParse as PDFParser } from "pdf-parse";
 import { Document, Packer, Paragraph, TextRun } from "docx";
 import { checkRateLimit, getAuthUser, getMaxFileSize } from "@/lib/jwtAuth";
 import { XXE_SAFE_XML_CONFIG } from "@/lib/inputValidation";
@@ -135,7 +135,8 @@ export async function POST(req: Request) {
       // Strategy 2: Fallback to plain text extraction
       console.log("⚠ HTML conversion failed, falling back to text extraction");
 
-      const pdfData = await PDFParser(buffer);
+      const parser = new PDFParser({ data: buffer });
+      const pdfData = await parser.parse();
 
       if (!pdfData.text || pdfData.text.trim().length === 0) {
         return NextResponse.json(

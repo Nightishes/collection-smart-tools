@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import pdfParse from "pdf-parse";
+import { PDFParse } from "pdf-parse";
 import { checkRateLimit, getAuthUser, getMaxFileSize } from "@/lib/jwtAuth";
 import { validatePdfMagic } from "@/lib/sanitize";
 
@@ -56,7 +56,8 @@ export async function POST(req: Request) {
     if (!validatePdfMagic(buf)) {
       return NextResponse.json({ error: "Invalid PDF file" }, { status: 400 });
     }
-    const data = await pdfParse(buf);
+    const parser = new PDFParse({ data: buf });
+    const data = await parser.parse();
     return NextResponse.json({
       success: true,
       content: data.text,
