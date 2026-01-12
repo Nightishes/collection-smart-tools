@@ -340,13 +340,9 @@ export function modifyHtml(
   // User-created/modified elements should have higher z-index than text elements
   // This ensures inserted and moved elements always appear in front
   // Use both class-based and style attribute selectors for reliability
-    // Z-index needs !important to override, but position should be flexible
-  styleRules.push(
-     `.user-element{z-index:200!important}`
-  );
-  styleRules.push(
-     `[style*="z-index: 200"]{z-index:200!important}`
-  );
+  // Z-index needs !important to override, but position should be flexible
+  styleRules.push(`.user-element{z-index:200!important}`);
+  styleRules.push(`[style*="z-index: 200"]{z-index:200!important}`);
 
   // Remove any inline user-select:none from .t elements to ensure text selection works
   modified = modified.replace(
@@ -610,7 +606,9 @@ export function insertElement(
     newElement.style.setProperty("z-index", "200");
     newElement.style.setProperty("position", "absolute");
     newElement.classList.add("user-element");
-    console.log("insertElement: Set z-index:200, position:absolute, and user-element class");
+    console.log(
+      "insertElement: Set z-index:200, position:absolute, and user-element class"
+    );
 
     // Apply custom styles if provided (can override defaults)
     if (styles) {
