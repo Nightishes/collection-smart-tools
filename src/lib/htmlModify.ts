@@ -340,12 +340,12 @@ export function modifyHtml(
   // User-created/modified elements should have higher z-index than text elements
   // This ensures inserted and moved elements always appear in front
   // Use both class-based and style attribute selectors for reliability
-  // MUST use position:absolute (not relative) to work with pdf2htmlEX's absolute positioning
+    // Z-index needs !important to override, but position should be flexible
   styleRules.push(
-    `.user-element{z-index:200!important;position:absolute!important}`
+     `.user-element{z-index:200!important}`
   );
   styleRules.push(
-    `[style*="z-index: 200"]{z-index:200!important;position:absolute!important}`
+     `[style*="z-index: 200"]{z-index:200!important}`
   );
 
   // Remove any inline user-select:none from .t elements to ensure text selection works
