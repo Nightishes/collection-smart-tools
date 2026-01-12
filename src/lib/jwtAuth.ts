@@ -7,9 +7,15 @@ import jwt from "jsonwebtoken";
 import { NextResponse } from "next/server";
 import redisCache from "./redisCache";
 
-const JWT_SECRET =
-  process.env.JWT_SECRET || "fallback-secret-change-in-production";
+const JWT_SECRET = process.env.JWT_SECRET;
 const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || "30d";
+
+// Validate JWT_SECRET is configured
+if (!JWT_SECRET) {
+  console.warn(
+    "⚠️ JWT_SECRET environment variable not set. Authentication will not work. Set JWT_SECRET in .env.local"
+  );
+}
 
 export interface AuthUser {
   userId: string;
@@ -29,6 +35,11 @@ export interface JWTPayload {
  * Generate a JWT token for a user
  */
 export function generateToken(userId: string, role: "admin" | "user"): string {
+  if (!JWT_SECRET) {
+    throw new Error(
+      "JWT_SECRET not configured. Set JWT_SECRET environment variable."
+    );
+  }
   const payload: JWTPayload = { userId, role };
   return jwt.sign(payload, JWT_SECRET, {
     expiresIn: JWT_EXPIRES_IN,
@@ -39,6 +50,10 @@ export function generateToken(userId: string, role: "admin" | "user"): string {
  * Verify and decode a JWT token
  */
 export function verifyToken(token: string): JWTPayload | null {
+  if (!JWT_SECRET) {
+    console.error("JWT_SECRET not configured");
+    return null;
+  }
   try {
     return jwt.verify(token, JWT_SECRET) as JWTPayload;
   } catch (error) {

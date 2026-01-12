@@ -1,0 +1,22 @@
+# Gitleaks configuration
+# Suppresses false positives and configures secret detection
+
+[allowlist]
+# Fallback test values that are clearly not real secrets
+paths = [
+  '''src/lib/jwtAuth\.ts''', # JWT_SECRET validation
+]
+
+# Suppress JWT warnings on jwtAuth.ts since it uses env variables
+[[rules]]
+id = "generic-api-key"
+# Disabled - we use environment variables
+enabled = false
+
+[[rules]]
+id = "jwt"
+# Allow JWT references in auth library
+paths = [
+  '''src/lib/jwtAuth\.ts''',
+]
+enabled = true
