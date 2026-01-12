@@ -44,7 +44,7 @@ export async function POST(req: Request) {
         status: 400,
       });
     }
-    const body: Body = jsonResult.data;
+    const body = jsonResult.data as Body;
 
     let html: string | null = null;
 

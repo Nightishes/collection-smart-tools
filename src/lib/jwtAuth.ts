@@ -5,7 +5,7 @@
 
 import jwt from "jsonwebtoken";
 import { NextResponse } from "next/server";
-import { redisCache } from "./redisCache";
+import redisCache from "./redisCache";
 
 const JWT_SECRET =
   process.env.JWT_SECRET || "fallback-secret-change-in-production";
@@ -130,11 +130,11 @@ export async function checkRateLimit(req: Request): Promise<{
   if (redisCache.isAvailable()) {
     try {
       const key = redisCache.generateKey(REDIS_RATE_LIMIT_PREFIX, ip);
-      const currentCount = await redisCache.client!.get(key);
+      const currentCount = await redisCache.get(key);
 
       if (!currentCount) {
         // First request in window
-        await redisCache.client!.setEx(key, Math.ceil(windowMs / 1000), "1");
+        await redisCache.set(key, "1", Math.ceil(windowMs / 1000));
         return { allowed: true };
       }
 
@@ -147,7 +147,7 @@ export async function checkRateLimit(req: Request): Promise<{
       }
 
       // Increment counter
-      await redisCache.client!.incr(key);
+      await redisCache.incr(key);
       return { allowed: true };
     } catch (err) {
       console.warn("[RateLimit] Redis error, falling back to in-memory");

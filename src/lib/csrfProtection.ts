@@ -6,7 +6,7 @@
 
 import { createHash, randomBytes } from "crypto";
 import { NextRequest } from "next/server";
-import { redisCache } from "./redisCache";
+import redisCache from "./redisCache";
 
 interface CSRFToken {
   token: string;
@@ -29,10 +29,10 @@ async function storeToken(hash: string, csrfData: CSRFToken): Promise<void> {
   if (redisCache.isAvailable()) {
     try {
       const key = redisCache.generateKey(REDIS_PREFIX, hash);
-      await redisCache.client!.setEx(
+      await redisCache.set(
         key,
-        Math.floor(CSRF_TOKEN_EXPIRY / 1000),
-        JSON.stringify(csrfData)
+        JSON.stringify(csrfData),
+        Math.floor(CSRF_TOKEN_EXPIRY / 1000)
       );
       return;
     } catch (err) {
@@ -49,7 +49,7 @@ async function retrieveToken(hash: string): Promise<CSRFToken | null> {
   if (redisCache.isAvailable()) {
     try {
       const key = redisCache.generateKey(REDIS_PREFIX, hash);
-      const data = await redisCache.client!.get(key);
+      const data = await redisCache.get(key);
       if (data) {
         return JSON.parse(data) as CSRFToken;
       }
@@ -67,7 +67,7 @@ async function deleteToken(hash: string): Promise<void> {
   if (redisCache.isAvailable()) {
     try {
       const key = redisCache.generateKey(REDIS_PREFIX, hash);
-      await redisCache.client!.del(key);
+      await redisCache.del(key);
     } catch (err) {
       console.warn("[CSRF] Failed to delete from Redis");
     }

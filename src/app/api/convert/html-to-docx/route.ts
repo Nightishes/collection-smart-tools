@@ -32,7 +32,10 @@ export async function POST(req: Request) {
     if (!jsonResult.success) {
       return NextResponse.json({ error: jsonResult.error }, { status: 400 });
     }
-    const { html, filename } = jsonResult.data;
+    const { html, filename } = jsonResult.data as {
+      html: string;
+      filename?: string;
+    };
     if (typeof html !== "string" || html.trim() === "") {
       return NextResponse.json(
         { success: false, error: "No HTML provided" },

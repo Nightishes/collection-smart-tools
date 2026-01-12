@@ -26,7 +26,7 @@ export async function POST(req: Request) {
         status: 400,
       });
     }
-    const body = jsonResult.data;
+    const body = jsonResult.data as { file: string; filename?: string };
     const originalFile = body.file;
 
     if (!originalFile) {

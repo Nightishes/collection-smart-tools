@@ -30,7 +30,10 @@ export async function POST(req: Request) {
     if (!jsonResult.success) {
       return NextResponse.json({ error: jsonResult.error }, { status: 400 });
     }
-    const { username, password } = jsonResult.data;
+    const { username, password } = jsonResult.data as {
+      username: string;
+      password: string;
+    };
 
     if (!username || !password) {
       return NextResponse.json(

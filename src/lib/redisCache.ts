@@ -88,6 +88,68 @@ class RedisCache {
   }
 
   /**
+   * Generic set operation with expiry
+   */
+  async set(
+    key: string,
+    value: string,
+    ttlSeconds: number
+  ): Promise<boolean> {
+    if (!this.isAvailable()) return false;
+
+    try {
+      await this.client!.setEx(key, ttlSeconds, value);
+      return true;
+    } catch (err) {
+      console.warn("[Redis] Failed to set key:", err);
+      return false;
+    }
+  }
+
+  /**
+   * Generic get operation
+   */
+  async get(key: string): Promise<string | null> {
+    if (!this.isAvailable()) return null;
+
+    try {
+      return await this.client!.get(key);
+    } catch (err) {
+      console.warn("[Redis] Failed to get key:", err);
+      return null;
+    }
+  }
+
+  /**
+   * Generic delete operation
+   */
+  async del(key: string): Promise<boolean> {
+    if (!this.isAvailable()) return false;
+
+    try {
+      await this.client!.del(key);
+      return true;
+    } catch (err) {
+      console.warn("[Redis] Failed to delete key:", err);
+      return false;
+    }
+  }
+
+  /**
+   * Increment operation (for rate limiting)
+   */
+  async incr(key: string): Promise<number | null> {
+    if (!this.isAvailable()) return null;
+
+    try {
+      return await this.client!.incr(key);
+    } catch (err) {
+      console.warn("[Redis] Failed to increment key:", err);
+      return null;
+    }
+  }
+
+  /**
    * Store converted HTML in cache
    */
   async setConvertedHtml(

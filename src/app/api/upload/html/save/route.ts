@@ -28,7 +28,13 @@ export async function POST(req: Request) {
         status: 400,
       });
     }
-    const body = jsonResult.data;
+    const body = jsonResult.data as {
+      modifiedHtml?: string;
+      filename: string;
+      content?: string;
+      file?: string;
+      options?: any;
+    };
 
     // Handle direct content saving for preview
     if (body.content && body.filename) {
