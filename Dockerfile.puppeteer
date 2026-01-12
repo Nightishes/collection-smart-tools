@@ -54,9 +54,10 @@ RUN groupadd -r appuser && useradd -r -g appuser -G audio,video appuser \
     && mkdir -p /home/appuser/Downloads \
     && chown -R appuser:appuser /app /home/appuser
 
-# Install puppeteer; it will bring its own Chromium compatible with Node
+# Install puppeteer and Chrome browser
 RUN npm install --no-audit --no-fund puppeteer@latest \
-    && chown -R appuser:appuser /app/node_modules
+    && npx puppeteer@latest browsers install chrome \
+    && chown -R appuser:appuser /app/node_modules /home/appuser
 
 # Copy the converter script
 COPY scripts/convert-html-to-pdf.js /app/convert-html-to-pdf.js
