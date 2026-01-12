@@ -336,6 +336,10 @@ export function modifyHtml(
   // Ensure .t text elements inside .c are still clickable by explicitly enabling pointer-events
   styleRules.push(`.c .t{pointer-events:auto!important}`);
 
+  // User-created/modified elements should have higher z-index than text elements
+  // This ensures inserted and moved elements always appear in front
+  styleRules.push(`[style*="z-index: 200"]{z-index:200!important;position:relative!important}`);
+
   // Remove any inline user-select:none from .t elements to ensure text selection works
   modified = modified.replace(
     /(<div\s+class="[^"]*\bt\b[^"]*"[^>]*style="[^"]*?)user-select:\s*none\s*;?\s*([^"]*)"/g,
@@ -599,6 +603,11 @@ export function insertElement(
       });
       console.log("insertElement: Applied custom styles to element");
     }
+
+    // User-created/modified elements should have high z-index (200) to appear above text elements (100)
+    newElement.style.setProperty("z-index", "200");
+    newElement.style.setProperty("position", "relative");
+    console.log("insertElement: Set z-index:200 for new user-created element");
 
     // Insert after current element
     if (current.nextSibling) {
