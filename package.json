@@ -8,7 +8,7 @@
     "start": "next start",
     "lint": "eslint",
     "test": "vitest",
-    "docker:build": "docker build -f Dockerfile.pdf2html -t pdf2html . ; docker build -f Dockerfile.puppeteer -t collection-tools-puppeteer . ; docker-compose pull clamav",
+    "docker:build": "docker build -f Dockerfile.pdf2html -t pdf2html . ; docker build -f Dockerfile.puppeteer -t collection-tools-puppeteer . ; docker build -f Dockerfile.tesseract -t collection-tools-tesseract . ; docker-compose pull clamav",
     "docker:test": "powershell -ExecutionPolicy Bypass -File ./test-docker-containers.ps1",
     "docker:up": "docker-compose up -d",
     "docker:down": "docker-compose down",

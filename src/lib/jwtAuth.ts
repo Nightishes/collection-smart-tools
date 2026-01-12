@@ -1,9 +1,11 @@
 /**
  * JWT-based authentication and authorization
+ * Now uses Redis for rate limiting in production
  */
 
 import jwt from "jsonwebtoken";
 import { NextResponse } from "next/server";
+import { redisCache } from "./redisCache";
 
 const JWT_SECRET =
   process.env.JWT_SECRET || "fallback-secret-change-in-production";
@@ -92,32 +94,67 @@ export function getMaxFileSize(user: AuthUser): number {
 }
 
 /**
- * Rate limiting with in-memory store
+ * Rate limiting with Redis (or in-memory fallback)
  */
 const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
+const REDIS_RATE_LIMIT_PREFIX = "ratelimit";
 
-// Cleanup old entries every 5 minutes
+// Cleanup old entries every 5 minutes (only for in-memory fallback)
 setInterval(() => {
-  const now = Date.now();
-  for (const [key, value] of rateLimitMap.entries()) {
-    if (now > value.resetAt) {
-      rateLimitMap.delete(key);
+  if (!redisCache.isAvailable()) {
+    const now = Date.now();
+    for (const [key, value] of rateLimitMap.entries()) {
+      if (now > value.resetAt) {
+        rateLimitMap.delete(key);
+      }
     }
   }
 }, 5 * 60 * 1000);
 
-export function checkRateLimit(req: Request): {
+export async function checkRateLimit(req: Request): Promise<{
   allowed: boolean;
   message?: string;
-} {
+}> {
   const ip =
     req.headers.get("x-forwarded-for") ||
     req.headers.get("x-real-ip") ||
     "unknown";
   const now = Date.now();
-  const windowMs = 60 * 1000; // 1 minute
-  const maxRequests = 10;
+  const windowMs = parseInt(process.env.RATE_LIMIT_WINDOW_MS || "60000", 10); // 1 minute
+  const maxRequests = parseInt(
+    process.env.RATE_LIMIT_MAX_REQUESTS || "100",
+    10
+  );
 
+  // Try Redis first
+  if (redisCache.isAvailable()) {
+    try {
+      const key = redisCache.generateKey(REDIS_RATE_LIMIT_PREFIX, ip);
+      const currentCount = await redisCache.client!.get(key);
+
+      if (!currentCount) {
+        // First request in window
+        await redisCache.client!.setEx(key, Math.ceil(windowMs / 1000), "1");
+        return { allowed: true };
+      }
+
+      const count = parseInt(currentCount, 10);
+      if (count >= maxRequests) {
+        return {
+          allowed: false,
+          message: "Too many requests. Please try again later.",
+        };
+      }
+
+      // Increment counter
+      await redisCache.client!.incr(key);
+      return { allowed: true };
+    } catch (err) {
+      console.warn("[RateLimit] Redis error, falling back to in-memory");
+    }
+  }
+
+  // Fallback to in-memory
   const current = rateLimitMap.get(ip);
 
   if (!current || now > current.resetAt) {

@@ -1,0 +1,30 @@
+# Dockerfile for Tesseract OCR service
+FROM ubuntu:22.04
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Install Tesseract OCR and language packs
+RUN apt-get update && apt-get install -y \
+    tesseract-ocr \
+    tesseract-ocr-eng \
+    tesseract-ocr-fra \
+    tesseract-ocr-spa \
+    tesseract-ocr-deu \
+    tesseract-ocr-ita \
+    tesseract-ocr-por \
+    libtesseract-dev \
+    imagemagick \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /ocr
+
+# Create non-root user for security
+RUN groupadd -r ocruser && useradd -r -g ocruser ocruser \
+    && chown -R ocruser:ocruser /ocr
+
+# Switch to non-root user
+USER ocruser
+
+# Set default entrypoint to tesseract
+ENTRYPOINT ["tesseract"]
+CMD ["--help"]

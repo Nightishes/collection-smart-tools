@@ -22,7 +22,7 @@ export const runtime = "nodejs";
 export async function POST(req: Request) {
   try {
     // Rate limiting
-    const rateCheck = checkRateLimit(req);
+    const rateCheck = await checkRateLimit(req);
     if (!rateCheck.allowed) {
       return NextResponse.json({ error: rateCheck.message }, { status: 429 });
     }

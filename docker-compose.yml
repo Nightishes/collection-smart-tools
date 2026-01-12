@@ -3,7 +3,7 @@ version: "3.8"
 services:
   # ClamAV antivirus daemon
   clamav:
-    image: clamav/clamav:1.3.0 # Pinned version for security
+    image: clamav/clamav:1.4.1 # Pinned version for security
     container_name: collection-tools-clamav
     user: "clamav:clamav"
     ports:
@@ -26,6 +26,14 @@ services:
       - CHOWN
       - SETGID
       - SETUID
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 2G
+        reservations:
+          cpus: "0.5"
+          memory: 1G
     restart: unless-stopped
     networks:
       - collection-tools
@@ -49,9 +57,44 @@ services:
       - no-new-privileges:true
     cap_drop:
       - ALL
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 1G
+        reservations:
+          cpus: "0.25"
+          memory: 512M
     restart: unless-stopped
     networks:
       - collection-tools
+
+  # Tesseract OCR service
+  tesseract:
+    build:
+      context: .
+      dockerfile: Dockerfile.tesseract
+    image: collection-tools-tesseract:latest
+    container_name: collection-tools-tesseract
+    volumes:
+      - ./uploads:/ocr:rw
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 1G
+        reservations:
+          cpus: "0.5"
+          memory: 512M
+    restart: unless-stopped
+    networks:
+      - collection-tools
+    entrypoint: ["/bin/sh", "-c"]
+    command: ["tail -f /dev/null"]
 
   # Optional: Existing services can be added here
   # pdf2html:
@@ -61,13 +104,6 @@ services:
 networks:
   collection-tools:
     driver: bridge
-    ipam:
-      config:
-        - subnet: 172.28.0.0/16
-    driver_opts:
-      com.docker.network.bridge.name: collection-tools-bridge
-      com.docker.network.bridge.enable_icc: "true"
-      com.docker.network.bridge.enable_ip_masquerade: "true"
 
 volumes:
   clamav-data:

@@ -10,7 +10,7 @@ import { parseJsonSafely } from "@/lib/inputValidation";
 export async function POST(req: Request) {
   try {
     // Rate limiting
-    const rateCheck = checkRateLimit(req);
+    const rateCheck = await checkRateLimit(req);
     if (!rateCheck.allowed) {
       return new Response(JSON.stringify({ error: rateCheck.message }), {
         status: 429,

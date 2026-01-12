@@ -12,7 +12,7 @@ export async function GET(request: NextRequest) {
     const userId = request.headers.get("x-user-id") || undefined;
 
     // Generate CSRF token
-    const { token, hash } = generateCSRFToken(userId);
+    const { token, hash } = await generateCSRFToken(userId);
     const config = getCSRFConfig();
 
     // Create response with token
