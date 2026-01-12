@@ -545,7 +545,6 @@ export function generateIframeScript(): string {
       }
 
       document.addEventListener("click", function(e) {
-        // Don't prevent default on text elements - allow text selection
         const target = e.target;
         
         // Check if target or any parent up to 3 levels is a text element
@@ -562,13 +561,13 @@ export function generateIframeScript(): string {
           return false;
         };
         
-        if (target && isTextElement(target)) {
-          // Allow default behavior for text selection
-          return;
+        // For text elements, allow default behavior (text selection) but still select the element
+        const isText = target && isTextElement(target);
+        if (!isText) {
+          // Only prevent default for non-text elements
+          e.preventDefault();
+          e.stopPropagation();
         }
-        
-        e.preventDefault();
-        e.stopPropagation();
         
         // Use elementFromPoint to get the element at click position
         let clickTarget = document.elementFromPoint(e.clientX, e.clientY);
