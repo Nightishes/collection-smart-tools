@@ -48,6 +48,7 @@ type EditorControlsProps = {
   imageCount?: number;
   onShowImages?: () => void;
   onInsertImage?: (imageData: string, width: number, height: number) => void;
+  onInsertShape?: (shapeType: "rectangle" | "circle" | "line", color: string) => void;
 };
 
 export function EditorControls({
@@ -76,6 +77,7 @@ export function EditorControls({
   imageCount = 0,
   onShowImages,
   onInsertImage,
+  onInsertShape,
 }: EditorControlsProps) {
   return (
     <>

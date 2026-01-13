@@ -6,6 +6,7 @@ import { useHtmlModifier } from "./hooks/useHtmlModifier";
 import { UploadArea, FileList } from "./components/UploadComponents";
 import { EditorControls } from "./components/EditorControls";
 import { ImageSlider } from "./components/ImageSlider";
+import { ShapeInsertionControls } from "./components/ShapeInsertionControls";
 import { useAuth } from "../context/AuthContext";
 import { handleDownload, DownloadFormat } from "./utils/downloadHandlers";
 import {
@@ -38,6 +39,7 @@ export default function PageModifyHtml() {
     insertElementAfterSelected,
     moveElementDirection,
     handleDragMove,
+    applyInlineStyles,
     reset,
     fcOverrides,
     fsOverrides,
@@ -356,6 +358,23 @@ export default function PageModifyHtml() {
     iframeWindow.addEventListener("mousemove", onMouseMove);
     iframeWindow.addEventListener("mouseup", onMouseUp);
 
+    // Add keyboard listener for delete
+    const onKeyDown = (e: KeyboardEvent) => {
+      if ((e.key === "Delete" || e.key === "Backspace") && !isDragging && !isResizing && !isRotating) {
+        e.preventDefault();
+        console.log("🗑️ Deleting image container");
+        container.remove();
+        iframeWindow.removeEventListener("keydown", onKeyDown);
+      }
+    };
+    
+    // Focus on container click to enable keyboard events
+    container.setAttribute("tabindex", "0");
+    container.addEventListener("click", () => {
+      container.focus();
+    });
+    iframeWindow.addEventListener("keydown", onKeyDown);
+
     // Hover effects
     container.addEventListener("mouseenter", () => {
       if (!isDragging && !isResizing && !isRotating) {
@@ -371,8 +390,248 @@ export default function PageModifyHtml() {
 
     // Insert container
     targetPage.appendChild(container);
+    container.focus(); // Auto-focus for immediate delete capability
 
     console.log(`✅ Image inserted at (${currentX}, ${currentY}) - size: ${currentWidth}x${currentHeight}`);
+  };
+
+  // Handler for shape insertion (rectangle, circle, line)
+  const handleInsertShape = (
+    shapeType: "rectangle" | "circle" | "line",
+    color: string
+  ) => {
+    if (!iframeRef.current?.contentDocument) {
+      alert("Editor not ready. Please try again.");
+      return;
+    }
+
+    const iframeDoc = iframeRef.current.contentDocument;
+    const iframeWindow = iframeDoc.defaultView || window;
+
+    // Find target page
+    let targetPage = iframeDoc.querySelector(".pf");
+    if (!targetPage) {
+      targetPage = iframeDoc.body;
+    }
+
+    // Calculate position
+    let left = 150;
+    let top = 150;
+
+    // Create container
+    const container = iframeDoc.createElement("div");
+    container.className = "inserted-shape-container";
+    container.setAttribute("tabindex", "0");
+    
+    let currentX = left;
+    let currentY = top;
+    let currentWidth = shapeType === "line" ? 150 : 100;
+    let currentHeight = shapeType === "line" ? 5 : 100;
+    let currentRotation = 0;
+    let isDragging = false;
+    let isResizing = false;
+    let isRotating = false;
+    let dragStartX = 0;
+    let dragStartY = 0;
+
+    const updateContainerStyle = () => {
+      container.style.cssText = `
+        position: absolute;
+        left: ${currentX}px;
+        top: ${currentY}px;
+        width: ${currentWidth}px;
+        height: ${currentHeight}px;
+        background: ${shapeType === "circle" ? color : color};
+        border: 2px solid ${color};
+        border-radius: ${shapeType === "circle" ? "50%" : "0"};
+        z-index: 10000;
+        cursor: move;
+        user-select: none;
+        transform: rotate(${currentRotation}deg);
+        transform-origin: center;
+        outline: none;
+        transition: ${isDragging || isResizing || isRotating ? "none" : "box-shadow 0.2s"};
+      `;
+    };
+
+    updateContainerStyle();
+
+    // Create resize handles (corners only for simplicity)
+    const handlePositions = [
+      { name: "nw", cursor: "nwse-resize", top: "-6px", left: "-6px" },
+      { name: "ne", cursor: "nesw-resize", top: "-6px", right: "-6px" },
+      { name: "se", cursor: "nwse-resize", bottom: "-6px", right: "-6px" },
+      { name: "sw", cursor: "nesw-resize", bottom: "-6px", left: "-6px" },
+    ];
+
+    const handles: { [key: string]: HTMLElement } = {};
+
+    handlePositions.forEach((pos) => {
+      const handle = iframeDoc.createElement("div");
+      handle.className = `resize-handle resize-handle-${pos.name}`;
+      handle.style.cssText = `
+        position: absolute;
+        width: 12px;
+        height: 12px;
+        background: white;
+        border: 2px solid ${color};
+        ${pos.top ? `top: ${pos.top};` : ""}
+        ${pos.bottom ? `bottom: ${pos.bottom};` : ""}
+        ${pos.left ? `left: ${pos.left};` : ""}
+        ${pos.right ? `right: ${pos.right};` : ""}
+        cursor: ${pos.cursor};
+        z-index: 11;
+      `;
+      handles[pos.name] = handle;
+      container.appendChild(handle);
+    });
+
+    // Create rotation handle
+    const rotationHandle = iframeDoc.createElement("div");
+    rotationHandle.className = "rotation-handle";
+    rotationHandle.style.cssText = `
+      position: absolute;
+      width: 20px;
+      height: 20px;
+      top: -35px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: ${color};
+      border: 2px solid white;
+      border-radius: 50%;
+      cursor: grab;
+      z-index: 11;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+      user-select: none;
+      color: white;
+    `;
+    rotationHandle.textContent = "⟳";
+    container.appendChild(rotationHandle);
+
+    // Mouse down on container (drag)
+    container.addEventListener("mousedown", (e) => {
+      if (
+        (e.target as HTMLElement).classList.contains("resize-handle") ||
+        (e.target as HTMLElement).classList.contains("rotation-handle")
+      ) {
+        return;
+      }
+
+      isDragging = true;
+      dragStartX = e.clientX;
+      dragStartY = e.clientY;
+      container.style.cursor = "grabbing";
+      container.style.boxShadow = "0 0 15px rgba(0, 102, 204, 0.5)";
+    });
+
+    // Resize handles
+    handlePositions.forEach((pos) => {
+      const handle = handles[pos.name];
+      handle.addEventListener("mousedown", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        isResizing = true;
+        dragStartX = e.clientX;
+        dragStartY = e.clientY;
+        container.style.boxShadow = "0 0 15px rgba(76, 175, 80, 0.5)";
+      });
+    });
+
+    // Rotation handle
+    rotationHandle.addEventListener("mousedown", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      isRotating = true;
+      dragStartX = e.clientX;
+      dragStartY = e.clientY;
+      rotationHandle.style.cursor = "grabbing";
+      container.style.boxShadow = "0 0 15px rgba(255, 217, 61, 0.5)";
+    });
+
+    // Mouse move
+    const onMouseMove = (e: MouseEvent) => {
+      if (isDragging) {
+        const deltaX = e.clientX - dragStartX;
+        const deltaY = e.clientY - dragStartY;
+        currentX += deltaX;
+        currentY += deltaY;
+        dragStartX = e.clientX;
+        dragStartY = e.clientY;
+        updateContainerStyle();
+      } else if (isResizing) {
+        const deltaX = e.clientX - dragStartX;
+        const deltaY = e.clientY - dragStartY;
+        const avgDelta = (Math.abs(deltaX) + Math.abs(deltaY)) / 2;
+        const direction = deltaX + deltaY > 0 ? 1 : -1;
+        currentWidth += direction * avgDelta;
+        currentHeight += shapeType === "line" ? 0 : direction * avgDelta;
+        currentWidth = Math.max(20, currentWidth);
+        currentHeight = Math.max(shapeType === "line" ? 2 : 20, currentHeight);
+        dragStartX = e.clientX;
+        dragStartY = e.clientY;
+        updateContainerStyle();
+      } else if (isRotating) {
+        const deltaX = e.clientX - dragStartX;
+        currentRotation += deltaX * 0.5;
+        dragStartX = e.clientX;
+        updateContainerStyle();
+      }
+    };
+
+    const onMouseUp = () => {
+      if (isDragging) {
+        isDragging = false;
+        container.style.cursor = "move";
+        container.style.boxShadow = "";
+      } else if (isResizing) {
+        isResizing = false;
+        container.style.boxShadow = "";
+      } else if (isRotating) {
+        isRotating = false;
+        rotationHandle.style.cursor = "grab";
+        container.style.boxShadow = "";
+      }
+    };
+
+    iframeWindow.addEventListener("mousemove", onMouseMove);
+    iframeWindow.addEventListener("mouseup", onMouseUp);
+
+    // Keyboard listener for delete
+    const onKeyDown = (e: KeyboardEvent) => {
+      if ((e.key === "Delete" || e.key === "Backspace") && !isDragging && !isResizing && !isRotating) {
+        e.preventDefault();
+        console.log("🗑️ Deleting shape container");
+        container.remove();
+        iframeWindow.removeEventListener("keydown", onKeyDown);
+      }
+    };
+    
+    container.addEventListener("click", () => {
+      container.focus();
+    });
+    iframeWindow.addEventListener("keydown", onKeyDown);
+
+    // Hover effects
+    container.addEventListener("mouseenter", () => {
+      if (!isDragging && !isResizing && !isRotating) {
+        container.style.boxShadow = "0 0 10px rgba(0, 102, 204, 0.3)";
+      }
+    });
+
+    container.addEventListener("mouseleave", () => {
+      if (!isDragging && !isResizing && !isRotating) {
+        container.style.boxShadow = "";
+      }
+    });
+
+    // Insert
+    targetPage.appendChild(container);
+    container.focus();
+
+    console.log(`✅ ${shapeType} inserted at (${currentX}, ${currentY})`);
   };
 
   // Setup postMessage listener for iframe element selection
@@ -543,7 +802,10 @@ export default function PageModifyHtml() {
               imageCount={imageList.length}
               onShowImages={() => setIsImageSliderOpen(true)}
                           onInsertImage={handleInsertImage}
+              onInsertShape={handleInsertShape}
             />
+
+            <ShapeInsertionControls onInsertShape={handleInsertShape} />
 
             <div
               style={{
