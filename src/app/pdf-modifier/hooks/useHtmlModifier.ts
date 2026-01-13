@@ -7,6 +7,7 @@ import {
   insertElement,
   moveElement,
   dragMoveElement,
+  applyInlineStyles as applyInlineStylesLib,
   ImageInfo,
 } from "../../../lib/htmlModify";
 import { ModifyOptions, StyleInfo } from "../types";
@@ -652,6 +653,28 @@ export function useHtmlModifier() {
     [selectedElement, getWorkingCopy, updateWorkingCopy]
   );
 
+  /**
+   * Apply inline styles to an element
+   * Handles special case: negative word-spacing becomes 10px
+   */
+  const applyInlineStyles = useCallback(
+    (
+      path: (number | string)[],
+      styles: Record<string, string | number | null | undefined>
+    ) => {
+      const workingCopy = getWorkingCopy();
+      if (!workingCopy) {
+        console.log("applyInlineStyles: No working copy available");
+        return;
+      }
+
+      console.log("applyInlineStyles: Applying styles to path:", path, styles);
+      const updatedHtml = applyInlineStylesLib(workingCopy, path, styles);
+      updateWorkingCopy(updatedHtml);
+    },
+    [getWorkingCopy, updateWorkingCopy]
+  );
+
   // Cleanup on unmount (no blob URLs to revoke anymore since we use server files)
   useEffect(() => {
     return () => {
@@ -683,6 +706,7 @@ export function useHtmlModifier() {
     insertElementAfterSelected,
     moveElementDirection,
     handleDragMove,
+    applyInlineStyles,
     reset,
   };
 }

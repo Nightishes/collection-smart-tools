@@ -108,6 +108,273 @@ export default function PageModifyHtml() {
     }
   };
 
+  // Handler for image insertion with drag, resize, and rotation
+  const handleInsertImage = (
+    imageData: string,
+    initialWidth: number,
+    initialHeight: number
+  ) => {
+    if (!iframeRef.current?.contentDocument) {
+      alert("Editor not ready. Please try again.");
+      return;
+    }
+
+    const iframeDoc = iframeRef.current.contentDocument;
+    const iframeWindow = iframeDoc.defaultView || window;
+
+    // Find target page
+    let targetPage = iframeDoc.querySelector(".pf");
+    if (!targetPage) {
+      targetPage = iframeDoc.body;
+    }
+
+    // Calculate position
+    let left = 100;
+    let top = 100;
+
+    // Create container with all controls
+    const container = iframeDoc.createElement("div");
+    container.className = "inserted-image-container";
+    
+    let currentX = left;
+    let currentY = top;
+    let currentWidth = initialWidth;
+    let currentHeight = initialHeight;
+    let currentRotation = 0;
+    let isDragging = false;
+    let isResizing = false;
+    let isRotating = false;
+    let dragStartX = 0;
+    let dragStartY = 0;
+
+    const updateContainerStyle = () => {
+      container.style.cssText = `
+        position: absolute;
+        left: ${currentX}px;
+        top: ${currentY}px;
+        width: ${currentWidth}px;
+        height: ${currentHeight}px;
+        z-index: 10000;
+        cursor: move;
+        user-select: none;
+        transform: rotate(${currentRotation}deg);
+        transform-origin: center;
+        transition: ${isDragging || isResizing || isRotating ? "none" : "box-shadow 0.2s"};
+      `;
+    };
+
+    updateContainerStyle();
+
+    // Create wrapper for image
+    const imgWrapper = iframeDoc.createElement("div");
+    imgWrapper.style.cssText = `
+      position: relative;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+    `;
+
+    // Create image
+    const img = iframeDoc.createElement("img");
+    img.src = imageData;
+    img.style.cssText = `
+      width: 100%;
+      height: 100%;
+      display: block;
+      pointer-events: none;
+      border: 2px solid #0066cc;
+      box-sizing: border-box;
+    `;
+
+    imgWrapper.appendChild(img);
+    container.appendChild(imgWrapper);
+
+    // Create resize handles (8 handles: corners + edges)
+    const handlePositions = [
+      { name: "nw", cursor: "nwse-resize", top: "0", left: "0" },
+      { name: "n", cursor: "ns-resize", top: "0", left: "50%", transform: "translateX(-50%)" },
+      { name: "ne", cursor: "nesw-resize", top: "0", right: "0" },
+      { name: "e", cursor: "ew-resize", top: "50%", right: "0", transform: "translateY(-50%)" },
+      { name: "se", cursor: "nwse-resize", bottom: "0", right: "0" },
+      { name: "s", cursor: "ns-resize", bottom: "0", left: "50%", transform: "translateX(-50%)" },
+      { name: "sw", cursor: "nesw-resize", bottom: "0", left: "0" },
+      { name: "w", cursor: "ew-resize", top: "50%", left: "0", transform: "translateY(-50%)" },
+    ];
+
+    const handles: { [key: string]: HTMLElement } = {};
+
+    handlePositions.forEach((pos) => {
+      const handle = iframeDoc.createElement("div");
+      handle.className = `resize-handle resize-handle-${pos.name}`;
+      handle.style.cssText = `
+        position: absolute;
+        width: 12px;
+        height: 12px;
+        background: #0066cc;
+        border: 2px solid white;
+        ${pos.top ? `top: ${pos.top};` : ""}
+        ${pos.bottom ? `bottom: ${pos.bottom};` : ""}
+        ${pos.left ? `left: ${pos.left};` : ""}
+        ${pos.right ? `right: ${pos.right};` : ""}
+        ${pos.transform ? `transform: ${pos.transform};` : ""}
+        cursor: ${pos.cursor};
+        z-index: 11;
+        opacity: 0.8;
+      `;
+      handles[pos.name] = handle;
+      container.appendChild(handle);
+    });
+
+    // Create rotation handle
+    const rotationHandle = iframeDoc.createElement("div");
+    rotationHandle.className = "rotation-handle";
+    rotationHandle.style.cssText = `
+      position: absolute;
+      width: 20px;
+      height: 20px;
+      top: -35px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: #ff6b6b;
+      border: 2px solid white;
+      border-radius: 50%;
+      cursor: grab;
+      z-index: 11;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+      user-select: none;
+    `;
+    rotationHandle.textContent = "⟳";
+    container.appendChild(rotationHandle);
+
+    // Mouse down on main container (drag)
+    container.addEventListener("mousedown", (e) => {
+      if (
+        (e.target as HTMLElement).classList.contains("resize-handle") ||
+        (e.target as HTMLElement).classList.contains("rotation-handle") ||
+        (e.target as HTMLElement).parentElement?.classList.contains("rotation-handle")
+      ) {
+        return;
+      }
+
+      isDragging = true;
+      dragStartX = e.clientX;
+      dragStartY = e.clientY;
+      container.style.cursor = "grabbing";
+      img.style.borderColor = "#ff6b6b";
+      container.style.boxShadow = "0 0 15px rgba(0, 102, 204, 0.5)";
+    });
+
+    // Resize handle logic
+    handlePositions.forEach((pos) => {
+      const handle = handles[pos.name];
+      if (!handle) return;
+
+      handle.addEventListener("mousedown", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        isResizing = true;
+        dragStartX = e.clientX;
+        dragStartY = e.clientY;
+        img.style.borderColor = "#4CAF50";
+        container.style.boxShadow = "0 0 15px rgba(76, 175, 80, 0.5)";
+      });
+    });
+
+    // Rotation handle logic
+    rotationHandle.addEventListener("mousedown", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      isRotating = true;
+      dragStartX = e.clientX;
+      dragStartY = e.clientY;
+      rotationHandle.style.cursor = "grabbing";
+      img.style.borderColor = "#ffd93d";
+      container.style.boxShadow = "0 0 15px rgba(255, 217, 61, 0.5)";
+    });
+
+    // Mouse move
+    let lastMouseUpdateTime = 0;
+    const throttleInterval = 16.67; // ~60fps (1000ms / 60)
+
+    const onMouseMove = (e: MouseEvent) => {
+      const now = performance.now();
+      // Throttle updates to ~60fps
+      if (now - lastMouseUpdateTime < throttleInterval) {
+        return;
+      }
+      lastMouseUpdateTime = now;
+
+      if (isDragging) {
+        const deltaX = e.clientX - dragStartX;
+        const deltaY = e.clientY - dragStartY;
+        currentX += deltaX;
+        currentY += deltaY;
+        dragStartX = e.clientX;
+        dragStartY = e.clientY;
+        updateContainerStyle();
+      } else if (isResizing) {
+        const deltaX = e.clientX - dragStartX;
+        const deltaY = e.clientY - dragStartY;
+        const avgDelta = (Math.abs(deltaX) + Math.abs(deltaY)) / 2;
+        const direction = deltaX + deltaY > 0 ? 1 : -1;
+        currentWidth += direction * avgDelta;
+        currentHeight += direction * avgDelta;
+        currentWidth = Math.max(50, currentWidth);
+        currentHeight = Math.max(50, currentHeight);
+        dragStartX = e.clientX;
+        dragStartY = e.clientY;
+        updateContainerStyle();
+      } else if (isRotating) {
+        const deltaX = e.clientX - dragStartX;
+        currentRotation += deltaX * 0.5;
+        dragStartX = e.clientX;
+        updateContainerStyle();
+      }
+    };
+
+    const onMouseUp = () => {
+      if (isDragging) {
+        isDragging = false;
+        container.style.cursor = "move";
+        img.style.borderColor = "#0066cc";
+        container.style.boxShadow = "";
+      } else if (isResizing) {
+        isResizing = false;
+        img.style.borderColor = "#0066cc";
+        container.style.boxShadow = "";
+      } else if (isRotating) {
+        isRotating = false;
+        rotationHandle.style.cursor = "grab";
+        img.style.borderColor = "#0066cc";
+        container.style.boxShadow = "";
+      }
+    };
+
+    iframeWindow.addEventListener("mousemove", onMouseMove);
+    iframeWindow.addEventListener("mouseup", onMouseUp);
+
+    // Hover effects
+    container.addEventListener("mouseenter", () => {
+      if (!isDragging && !isResizing && !isRotating) {
+        container.style.boxShadow = "0 0 10px rgba(0, 102, 204, 0.3)";
+      }
+    });
+
+    container.addEventListener("mouseleave", () => {
+      if (!isDragging && !isResizing && !isRotating) {
+        container.style.boxShadow = "";
+      }
+    });
+
+    // Insert container
+    targetPage.appendChild(container);
+
+    console.log(`✅ Image inserted at (${currentX}, ${currentY}) - size: ${currentWidth}x${currentHeight}`);
+  };
+
   // Setup postMessage listener for iframe element selection
   useEffect(() => {
     const handlers: MessageHandlers = {
@@ -275,6 +542,7 @@ export default function PageModifyHtml() {
               onMoveRight={() => moveElementDirection("right")}
               imageCount={imageList.length}
               onShowImages={() => setIsImageSliderOpen(true)}
+                          onInsertImage={handleInsertImage}
             />
 
             <div

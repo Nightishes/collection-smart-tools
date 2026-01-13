@@ -548,6 +548,12 @@ export function insertElement(
     if (current instanceof HTMLElement && current.className) {
       newElement.className = current.className;
       console.log("insertElement: Copied classes:", current.className);
+      
+      // Check if any ws (word-spacing) class is present
+      const hasWsClass = /\bws\d+\b/.test(current.className);
+      if (hasWsClass) {
+        console.log("insertElement: Detected ws class, will override word-spacing to 10px");
+      }
     }
 
     // For pdf2htmlEX, get computed position (might be in CSS classes, not inline)
@@ -609,6 +615,14 @@ export function insertElement(
     // MUST use position:absolute (not relative) to work with pdf2htmlEX's absolute positioning
     newElement.style.setProperty("z-index", "200");
     newElement.style.setProperty("position", "absolute");
+    
+    // Override negative word-spacing from ws classes for user-generated text
+    // pdf2htmlEX uses ws classes with negative word-spacing which looks bad for user text
+    if (current instanceof HTMLElement && /\bws\d+\b/.test(current.className)) {
+      newElement.style.setProperty("word-spacing", "10px", "important");
+      console.log("insertElement: Overriding word-spacing to 10px for user text");
+    }
+    
     newElement.classList.add("user-element");
     console.log(
       "insertElement: Set z-index:200, position:absolute, and user-element class"
@@ -1120,6 +1134,122 @@ export function deleteElement(
     return html;
   } catch (error) {
     console.error("❌ ERROR in deleteElement:", error);
+    console.error(
+      "Stack:",
+      error instanceof Error ? error.stack : "No stack trace"
+    );
+    return html;
+  }
+}
+
+/**
+ * Apply inline styles to an element by selector path
+ * Special handling: If word-spacing is negative, set it to 10px
+ * @param html - Original HTML content
+ * @param selectorPath - Array of indices representing path to element
+ * @param styles - Object containing CSS properties to apply
+ * @returns Modified HTML with styles applied
+ */
+export function applyInlineStyles(
+  html: string,
+  selectorPath: (number | string)[],
+  styles: Record<string, string | number | null | undefined>
+): string {
+  try {
+    if (!selectorPath || selectorPath.length === 0) {
+      console.log("applyInlineStyles: Empty selector path");
+      return html;
+    }
+
+    console.log(
+      "applyInlineStyles: Applying styles to path:",
+      selectorPath,
+      "styles:",
+      styles
+    );
+
+    const bodyMatch = html.match(/<body[^>]*>([\s\S]*)<\/body>/i);
+    if (!bodyMatch) {
+      console.log("applyInlineStyles: Could not find body tag");
+      return html;
+    }
+
+    const bodyContent = bodyMatch[1];
+    const bodyContainer = document.createElement("div");
+    bodyContainer.innerHTML = bodyContent;
+
+    // Navigate to target element
+    const current = navigateByPath(bodyContainer, selectorPath);
+    if (!current || !(current instanceof HTMLElement)) {
+      console.log("applyInlineStyles: Could not navigate to element");
+      return html;
+    }
+
+    console.log(
+      "applyInlineStyles: Found element:",
+      current.tagName,
+      current.className
+    );
+
+    // Get existing style attribute
+    const existingStyle = current.getAttribute("style") || "";
+    const styleObj: Record<string, string> = {};
+
+    // Parse existing styles
+    if (existingStyle) {
+      existingStyle.split(";").forEach((rule) => {
+        const [key, value] = rule.split(":").map((s) => s.trim());
+        if (key && value) {
+          styleObj[key] = value;
+        }
+      });
+    }
+
+    // Apply new styles with special handling for word-spacing
+    Object.entries(styles).forEach(([key, value]) => {
+      if (value === null || value === undefined) {
+        delete styleObj[key];
+      } else {
+        const stringValue = String(value);
+        
+        // Special handling for word-spacing
+        if (key === "word-spacing" || key === "wordSpacing") {
+          const numValue = parseFloat(stringValue);
+          if (!isNaN(numValue) && numValue < 0) {
+            console.log(
+              `applyInlineStyles: Negative word-spacing detected (${numValue}), setting to 10px`
+            );
+            styleObj["word-spacing"] = "10px";
+          } else {
+            styleObj["word-spacing"] = stringValue.includes("px")
+              ? stringValue
+              : stringValue + "px";
+          }
+        } else {
+          // Convert camelCase to kebab-case
+          const kebabKey = key.replace(/[A-Z]/g, (m) => "-" + m.toLowerCase());
+          styleObj[kebabKey] = stringValue;
+        }
+      }
+    });
+
+    // Rebuild style string
+    const newStyle = Object.entries(styleObj)
+      .map(([key, value]) => `${key}: ${value}`)
+      .join("; ");
+
+    current.setAttribute("style", newStyle);
+
+    // Replace the body content in the original HTML
+    const newBodyContent = bodyContainer.innerHTML;
+    const newHtml = html.replace(/<body[^>]*>[\s\S]*<\/body>/i, (match) =>
+      match.replace(bodyMatch[1], newBodyContent)
+    );
+
+    console.log("applyInlineStyles: Styles applied successfully");
+    return newHtml;
+  } catch (error) {
+    console.error("❌ ERROR in applyInlineStyles:", error);
     console.error(
       "Stack:",
       error instanceof Error ? error.stack : "No stack trace"
