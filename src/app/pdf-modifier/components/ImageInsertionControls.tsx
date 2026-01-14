@@ -8,7 +8,6 @@ type ImageInsertionControlsProps = {
 };
 
 export function ImageInsertionControls({ onInsertImage }: ImageInsertionControlsProps) {
-  const [isOpen, setIsOpen] = useState(false);
   const [imageSize, setImageSize] = useState({ width: 200, height: 200 });
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -33,7 +32,6 @@ export function ImageInsertionControls({ onInsertImage }: ImageInsertionControls
         }
 
         onInsertImage(imageData, Math.round(width), Math.round(height));
-        setIsOpen(false);
       };
       img.src = imageData;
     };
@@ -41,102 +39,49 @@ export function ImageInsertionControls({ onInsertImage }: ImageInsertionControls
   };
 
   return (
-    <div style={{ marginTop: "1rem" }}>
+    <div className={styles.inlineToolsBar}>
       <button
-        className={styles.ctaButton}
-        onClick={() => setIsOpen(!isOpen)}
-        title="Insert an image into the PDF"
+        className={styles.ghostButton}
+        onClick={() => fileInputRef.current?.click()}
+        title="Insert an image"
       >
-        📷 Insert Image
+        📷 Image
       </button>
 
-      {isOpen && (
-        <div
-          style={{
-            marginTop: "0.75rem",
-            padding: "0.75rem",
-            border: "1px solid var(--border-color)",
-            borderRadius: "0.5rem",
-            background: "var(--foreground)",
-          }}
-        >
-          <div style={{ marginBottom: "0.75rem" }}>
-            <label
-              style={{
-                display: "block",
-                marginBottom: "0.5rem",
-                fontSize: "0.875rem",
-                fontWeight: 500,
-              }}
-            >
-              Initial Width (px):
-            </label>
-            <input
-              type="number"
-              min="50"
-              max="1000"
-              value={imageSize.width}
-              onChange={(e) =>
-                setImageSize({ ...imageSize, width: Math.max(50, parseInt(e.target.value) || 200) })
-              }
-              style={{
-                width: "100%",
-                padding: "0.5rem",
-                border: "1px solid var(--border-color)",
-                borderRadius: "0.25rem",
-                background: "var(--background)",
-                color: "var(--foreground)",
-              }}
-            />
-          </div>
+      <label className={styles.inlineLabel} title="Initial width (px)">
+        W
+        <input
+          type="number"
+          min="50"
+          max="1000"
+          value={imageSize.width}
+          onChange={(e) =>
+            setImageSize({ ...imageSize, width: Math.max(50, parseInt(e.target.value) || 200) })
+          }
+          className={styles.inlineNumber}
+        />
+      </label>
+      <label className={styles.inlineLabel} title="Initial height (px)">
+        H
+        <input
+          type="number"
+          min="50"
+          max="1000"
+          value={imageSize.height}
+          onChange={(e) =>
+            setImageSize({ ...imageSize, height: Math.max(50, parseInt(e.target.value) || 200) })
+          }
+          className={styles.inlineNumber}
+        />
+      </label>
 
-          <div style={{ marginBottom: "0.75rem" }}>
-            <label
-              style={{
-                display: "block",
-                marginBottom: "0.5rem",
-                fontSize: "0.875rem",
-                fontWeight: 500,
-              }}
-            >
-              Initial Height (px):
-            </label>
-            <input
-              type="number"
-              min="50"
-              max="1000"
-              value={imageSize.height}
-              onChange={(e) =>
-                setImageSize({ ...imageSize, height: Math.max(50, parseInt(e.target.value) || 200) })
-              }
-              style={{
-                width: "100%",
-                padding: "0.5rem",
-                border: "1px solid var(--border-color)",
-                borderRadius: "0.25rem",
-                background: "var(--background)",
-                color: "var(--foreground)",
-              }}
-            />
-          </div>
-
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/*"
-            onChange={handleImageSelect}
-            style={{ display: "none" }}
-          />
-
-          <button
-            className={styles.ctaButton}
-            onClick={() => fileInputRef.current?.click()}
-            style={{ width: "100%" }}
-          >
-            Choose Image File
-          </button>
-        </div>
-      )}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*"
+        onChange={handleImageSelect}
+        style={{ display: "none" }}
+      />
     </div>
   );
 }

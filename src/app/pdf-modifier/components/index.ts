@@ -8,6 +8,7 @@ export { FontColorControls } from "./FontColorControls";
 export { FontSizeControls } from "./FontSizeControls";
 export { MovementControls } from "./MovementControls";
 export { DownloadControls } from "./DownloadControls";
+export { ImageInsertionControls } from "./ImageInsertionControls";
 export { TextInsertionControls } from "./TextInsertionControls";
 export { UploadArea, FileList } from "./UploadComponents";
 export { ImageSlider } from "./ImageSlider";

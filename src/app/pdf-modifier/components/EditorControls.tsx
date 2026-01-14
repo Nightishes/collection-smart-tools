@@ -12,7 +12,6 @@ import { FontSizeControls } from "./FontSizeControls";
 import { MovementControls } from "./MovementControls";
 import { DownloadControls } from "./DownloadControls";
 import { TextInsertionControls } from "./TextInsertionControls";
-import { ImageInsertionControls } from "./ImageInsertionControls";
 import styles from "../page.module.css";
 
 type EditorControlsProps = {
@@ -47,7 +46,6 @@ type EditorControlsProps = {
   isAdmin?: boolean;
   imageCount?: number;
   onShowImages?: () => void;
-  onInsertImage?: (imageData: string, width: number, height: number) => void;
   onInsertShape?: (shapeType: "rectangle" | "circle" | "line", color: string) => void;
 };
 
@@ -76,7 +74,6 @@ export function EditorControls({
   isAdmin = false,
   imageCount = 0,
   onShowImages,
-  onInsertImage,
   onInsertShape,
 }: EditorControlsProps) {
   return (
@@ -165,8 +162,6 @@ export function EditorControls({
         onInsertElement={onInsertElement}
         onDeleteSelected={onDeleteSelected}
       />
-
-      {onInsertImage && <ImageInsertionControls onInsertImage={onInsertImage} />}
     </>
   );
 }

@@ -447,8 +447,20 @@ export function useHtmlModifier() {
     setHtmlContent(null);
     setModifiedHtml(null);
     setContentVersion(0);
-    // Clear cache
+    setSelectedElement(null);
+    setSelectedElementClasses({ fcClass: null, fsClass: null });
+    setImageList([]);
+    setStyleInfo({ fontColors: [], fontSizes: [] });
+    setFcOverrides({});
+    setFsOverrides({});
+    setOptions({
+      bgColor: "#ffffff",
+      removeDataImages: false,
+      reorganizeContainers: false,
+    });
+    // Clear cache and original style info
     workingCopyCache.current = null;
+    originalStyleInfoRef.current = { fontColors: [], fontSizes: [] };
   };
 
   const handleElementSelection = useCallback(

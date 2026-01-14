@@ -449,7 +449,8 @@ export function insertElement(
             .map(([k, v]) => `${k}: ${v}`)
             .join("; ")}"`
         : "";
-      const newElement = `<${elementType}${styleAttr}>${escapeHtml(
+      const classAttr = ` class="user-element"`;
+      const newElement = `<${elementType}${classAttr}${styleAttr}>${escapeHtml(
         content
       )}</${elementType}>`;
       console.log("insertElement: New element HTML:", newElement);
@@ -612,20 +613,39 @@ export function insertElement(
 
     // User-created/modified elements should have high z-index (200) to appear above text elements (100)
     // Set these FIRST as defaults, then allow custom styles to override if needed
-    // MUST use position:absolute (not relative) to work with pdf2htmlEX's absolute positioning
     newElement.style.setProperty("z-index", "200");
-    newElement.style.setProperty("position", "absolute");
-    
-    // Override negative word-spacing from ws classes for user-generated text
-    // pdf2htmlEX uses ws classes with negative word-spacing which looks bad for user text
-    if (current instanceof HTMLElement && /\bws\d+\b/.test(current.className)) {
+
+    // Only force absolute positioning for block-level elements (div, p, etc)
+    // Inline elements (span, a, em, etc) should maintain inline flow to prevent breaking text layout
+    const inlineElements = ["span", "a", "em", "strong", "i", "b", "u", "small", "large"];
+    const isInlineElement = inlineElements.includes(newElement.tagName.toLowerCase());
+
+    if (!isInlineElement) {
+      // Block-level elements get absolute positioning to match pdf2htmlEX layout
+      newElement.style.setProperty("position", "absolute");
+    } else {
+      // Inline text: ensure readability and prevent inherited negative spacing
+      // Remove any letter/word-spacing classes if they were copied
+      if (newElement.className) {
+        newElement.className = newElement.className
+          .replace(/\bls\d+\b/g, "")
+          .replace(/\bws\d+\b/g, "")
+          .replace(/\s{2,}/g, " ")
+          .trim();
+      }
+      newElement.style.setProperty("letter-spacing", "normal", "important");
       newElement.style.setProperty("word-spacing", "10px", "important");
-      console.log("insertElement: Overriding word-spacing to 10px for user text");
     }
-    
+
+    // If the selected element had a ws* class, also normalize spacing for block insertions
+    if (!isInlineElement && current instanceof HTMLElement && /\bws\d+\b/.test(current.className)) {
+      newElement.style.setProperty("word-spacing", "10px", "important");
+      console.log("insertElement: Normalized word-spacing to 10px for block element");
+    }
+
     newElement.classList.add("user-element");
     console.log(
-      "insertElement: Set z-index:200, position:absolute, and user-element class"
+      `insertElement: Positioned ${isInlineElement ? "inline (no absolute)" : "absolute"} with z-index:200; classes: ${newElement.className}`
     );
 
     // Apply custom styles if provided (can override defaults)

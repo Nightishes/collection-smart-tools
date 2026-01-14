@@ -398,6 +398,39 @@ interface ProcessedImageResult {
 - Flood-fill algorithm complexity: O(width × height)
 
 ### Dependencies
+## [Unreleased] - 2026-01-14
+
+### UX – Text, Images, Shapes
+- Text box insertion is now a standalone, draggable textarea created directly inside the iframe page. Controls (drag handle, ✔ confirm, ✖ cancel, resize corners) are shown only on focus and hidden on blur. Borders are transparent when unfocused. Enter blurs/unselects; Esc cancels.
+- Image insertion reworked to deselect any existing text selection first, prompt for target page in multi-page documents, and hide rotation/resize handles when unfocused. Image borders default to transparent and only appear when selected.
+- Shape insertion adds new SVG “cross” (✖️) and “checkmark” (✔️) types, alongside rectangle, circle, and line. Handles/rotation are hidden when unfocused. Page selection prompt ensures correct placement in multi-page docs.
+
+### Inline Positioning & Spacing
+- Prevent absolute positioning on inline text elements to avoid stacking conflicts and layout breaks. Absolute positioning is applied only to block-level inserts.
+- Normalize inline text spacing: strip inherited `ls*`/`ws*` classes where applicable and set `letter-spacing: normal` with `word-spacing: 10px` for user-inserted inline text to ensure readability.
+
+### Selection Behavior
+- Before any new insertion (text, image, shape), the editor deselects `.pdf-editor-selected` to avoid lingering highlights.
+- Delete keyboard handling is scoped to the focused container for images/shapes so only the currently focused element can be removed.
+
+### Export Improvements
+- Downloads now pull the current HTML from the iframe document so inserted images, shapes, and text boxes are preserved in exported files.
+
+### State Management
+- Strengthened `reset()` to fully clear: last file name, original/modified HTML, content version, selection states, image list, style info, font overrides, options, caches, and original style info references when uploading a new PDF.
+
+### Files Updated
+- [src/app/pdf-modifier/page.tsx](src/app/pdf-modifier/page.tsx)
+- [src/app/pdf-modifier/hooks/useHtmlModifier.ts](src/app/pdf-modifier/hooks/useHtmlModifier.ts)
+- [src/app/pdf-modifier/utils/iframeScripts.ts](src/app/pdf-modifier/utils/iframeScripts.ts)
+- [src/lib/htmlModify.ts](src/lib/htmlModify.ts)
+- [src/app/pdf-modifier/components/EditorControls.tsx](src/app/pdf-modifier/components/EditorControls.tsx)
+- [src/app/pdf-modifier/components/ImageInsertionControls.tsx](src/app/pdf-modifier/components/ImageInsertionControls.tsx)
+- [src/app/pdf-modifier/components/ShapeInsertionControls.tsx](src/app/pdf-modifier/components/ShapeInsertionControls.tsx)
+- [src/app/pdf-modifier/components/index.ts](src/app/pdf-modifier/components/index.ts)
+- [src/app/pdf-modifier/page.module.css](src/app/pdf-modifier/page.module.css)
+- Added: [src/app/pdf-modifier/components/FloatingTextEditor.tsx](src/app/pdf-modifier/components/FloatingTextEditor.tsx)
+- Added: [src/app/pdf-modifier/components/InlineTextInsertionControls.tsx](src/app/pdf-modifier/components/InlineTextInsertionControls.tsx)
 
 - No new dependencies required (uses browser Canvas API)
 - Existing dependencies maintained

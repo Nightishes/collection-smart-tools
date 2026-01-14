@@ -4,89 +4,56 @@ import { useState } from "react";
 import styles from "../page.module.css";
 
 type ShapeInsertionControlsProps = {
-  onInsertShape: (shapeType: "rectangle" | "circle" | "line", color: string) => void;
+  onInsertShape: (shapeType: "rectangle" | "circle" | "line" | "cross" | "checkmark", color: string) => void;
+  onInsertTextBox?: () => void;
 };
 
-export function ShapeInsertionControls({ onInsertShape }: ShapeInsertionControlsProps) {
-  const [isOpen, setIsOpen] = useState(false);
+export function ShapeInsertionControls({ onInsertShape, onInsertTextBox }: ShapeInsertionControlsProps) {
   const [shapeColor, setShapeColor] = useState("#ff0000");
 
-  const handleInsertShape = (type: "rectangle" | "circle" | "line") => {
+  const handleInsertShape = (type: "rectangle" | "circle" | "line" | "cross" | "checkmark") => {
     onInsertShape(type, shapeColor);
-    setIsOpen(false);
   };
 
   return (
-    <div style={{ marginTop: "1rem" }}>
-      <button
-        className={styles.ctaButton}
-        onClick={() => setIsOpen(!isOpen)}
-        title="Insert shapes (rectangle, circle, line)"
-      >
-        🔷 Insert Shape
-      </button>
-
-      {isOpen && (
-        <div
-          style={{
-            marginTop: "0.75rem",
-            padding: "0.75rem",
-            border: "1px solid var(--border-color)",
-            borderRadius: "0.5rem",
-            background: "var(--foreground)",
-          }}
+    <div className={styles.inlineToolsBar}>
+      {onInsertTextBox && (
+        <button
+          className={styles.ghostButton}
+          onClick={() => onInsertTextBox()}
+          title="Insert draggable text box"
         >
-          <div style={{ marginBottom: "0.75rem" }}>
-            <label
-              style={{
-                display: "block",
-                marginBottom: "0.5rem",
-                fontSize: "0.875rem",
-                fontWeight: 500,
-              }}
-            >
-              Color:
-            </label>
-            <input
-              type="color"
-              value={shapeColor}
-              onChange={(e) => setShapeColor(e.target.value)}
-              style={{
-                width: "100%",
-                height: "40px",
-                border: "1px solid var(--border-color)",
-                borderRadius: "0.25rem",
-                cursor: "pointer",
-              }}
-            />
-          </div>
-
-          <div style={{ display: "flex", gap: "0.5rem", marginTop: "0.75rem" }}>
-            <button
-              className={styles.ctaButton}
-              onClick={() => handleInsertShape("rectangle")}
-              style={{ flex: 1 }}
-            >
-              ⬜ Rectangle
-            </button>
-            <button
-              className={styles.ctaButton}
-              onClick={() => handleInsertShape("circle")}
-              style={{ flex: 1 }}
-            >
-              ⭕ Circle
-            </button>
-          </div>
-
-          <button
-            className={styles.ctaButton}
-            onClick={() => handleInsertShape("line")}
-            style={{ width: "100%", marginTop: "0.5rem" }}
-          >
-            ➖ Line
-          </button>
-        </div>
+          📝 Text Box
+        </button>
       )}
+
+      <label className={styles.inlineLabel} title="Shape color">
+        🎨
+        <input
+          type="color"
+          value={shapeColor}
+          onChange={(e) => setShapeColor(e.target.value)}
+          className={styles.inlineColor}
+        />
+      </label>
+
+      <div className={styles.inlineButtonGroup}>
+        <button className={styles.ghostButton} onClick={() => handleInsertShape("rectangle")} title="Rectangle">
+          ⬜
+        </button>
+        <button className={styles.ghostButton} onClick={() => handleInsertShape("circle")} title="Circle">
+          ⭕
+        </button>
+        <button className={styles.ghostButton} onClick={() => handleInsertShape("line")} title="Line">
+          ➖
+        </button>
+        <button className={styles.ghostButton} onClick={() => handleInsertShape("cross")} title="Cross">
+          ✖️
+        </button>
+        <button className={styles.ghostButton} onClick={() => handleInsertShape("checkmark")} title="Checkmark">
+          ✔️
+        </button>
+      </div>
     </div>
   );
 }
