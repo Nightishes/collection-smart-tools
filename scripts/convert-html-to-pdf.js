@@ -43,12 +43,29 @@ const puppeteer = require("puppeteer");
       // Try to find .pf (page frame) elements which have the actual page size
       const pageFrame = document.querySelector('.pf');
       if (pageFrame) {
-        const style = window.getComputedStyle(pageFrame);
-        const width = parseFloat(style.width) || 794;
-        const height = parseFloat(style.height) || 1123;
-        return { width, height };
+        // Use offsetWidth/Height for actual rendered dimensions
+        const width = pageFrame.offsetWidth || pageFrame.clientWidth;
+        const height = pageFrame.offsetHeight || pageFrame.clientHeight;
+        
+        if (width && height) {
+          console.log(`Found .pf dimensions: ${width}x${height}px`);
+          return { width, height };
+        }
       }
+      
+      // Try page-container as fallback
+      const pageContainer = document.querySelector('#page-container');
+      if (pageContainer) {
+        const width = pageContainer.scrollWidth;
+        const height = pageContainer.scrollHeight;
+        if (width && height && width < 3000 && height < 3000) {
+          console.log(`Found #page-container dimensions: ${width}x${height}px`);
+          return { width, height };
+        }
+      }
+      
       // Fallback to A4 dimensions at 96 DPI: 210mm x 297mm = 794px x 1123px
+      console.log('Using fallback A4 dimensions: 794x1123px');
       return { width: 794, height: 1123 };
     });
 

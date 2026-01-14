@@ -65,7 +65,50 @@ export default function PageModifyHtml() {
     // Get the current HTML from iframe (includes inserted images/shapes)
     let htmlToDownload = modifiedHtml;
     if (iframeRef.current?.contentDocument) {
-      const iframeHtml = iframeRef.current.contentDocument.documentElement.outerHTML;
+      const iframeDoc = iframeRef.current.contentDocument;
+      
+      // Convert all textareas to divs with their actual content before exporting
+      const textareas = iframeDoc.querySelectorAll('.text-box-container textarea');
+      textareas.forEach((textarea) => {
+        const value = (textarea as HTMLTextAreaElement).value.trim();
+        if (value) {
+          const container = textarea.closest('.text-box-container') as HTMLElement;
+          if (container) {
+            // Create text div
+            const textDiv = iframeDoc.createElement('div');
+            textDiv.className = 'user-text-content';
+            textDiv.style.cssText = `
+              width: 100%;
+              height: 100%;
+              padding: 10px;
+              box-sizing: border-box;
+              white-space: pre-wrap;
+              word-wrap: break-word;
+              overflow-wrap: break-word;
+              color: #111;
+              font-size: 14px;
+              font-family: inherit;
+              line-height: 1.4;
+            `;
+            textDiv.textContent = value;
+            
+            // Remove textarea and controls
+            const header = container.querySelector('div');
+            const handles = container.querySelectorAll('[class*="resize-handle"]');
+            header?.remove();
+            handles.forEach(h => h.remove());
+            textarea.remove();
+            
+            // Add text div and finalize container
+            container.appendChild(textDiv);
+            container.style.cursor = 'default';
+            container.style.border = '1px solid #ddd';
+            container.style.background = 'rgba(255,255,255,0.95)';
+          }
+        }
+      });
+      
+      const iframeHtml = iframeDoc.documentElement.outerHTML;
       if (iframeHtml) {
         htmlToDownload = iframeHtml;
       }
