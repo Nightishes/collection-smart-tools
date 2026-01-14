@@ -17,10 +17,6 @@ const puppeteer = require("puppeteer");
     const [inputPath, outputPath] = args;
     const html = fs.readFileSync(inputPath, "utf8");
 
-    // A4 dimensions at 96 DPI: 210mm x 297mm = 794px x 1123px
-    const a4WidthPx = 794;
-    const a4HeightPx = 1123;
-
     const browser = await puppeteer.launch({
       args: [
         "--no-sandbox",
@@ -33,26 +29,50 @@ const puppeteer = require("puppeteer");
     });
     const page = await browser.newPage();
 
-    // Set viewport to A4 dimensions
-    await page.setViewport({ width: a4WidthPx, height: a4HeightPx });
-
     // Emulate print media to get print-specific CSS
     await page.emulateMediaType("print");
 
-    // Set content - use 'domcontentloaded' instead of 'networkidle0' to avoid hanging
-    // This is much faster and more reliable for self-contained HTML
+    // Set content first to determine actual page dimensions
     await page.setContent(html, {
       waitUntil: "domcontentloaded",
       timeout: 30000,
     });
 
-    // Determine PDF dimensions - use exact A4 size with 5px bottom padding
+    // Get actual page dimensions from the HTML
+    const dimensions = await page.evaluate(() => {
+      // Try to find .pf (page frame) elements which have the actual page size
+      const pageFrame = document.querySelector('.pf');
+      if (pageFrame) {
+        const style = window.getComputedStyle(pageFrame);
+        const width = parseFloat(style.width) || 794;
+        const height = parseFloat(style.height) || 1123;
+        return { width, height };
+      }
+      // Fallback to A4 dimensions at 96 DPI: 210mm x 297mm = 794px x 1123px
+      return { width: 794, height: 1123 };
+    });
+
+    console.log(`Page dimensions: ${dimensions.width}x${dimensions.height}px`);
+
+    // Set viewport to match actual page dimensions
+    await page.setViewport({ 
+      width: Math.ceil(dimensions.width), 
+      height: Math.ceil(dimensions.height) 
+    });
+
+    // Reload content with correct viewport
+    await page.setContent(html, {
+      waitUntil: "domcontentloaded",
+      timeout: 30000,
+    });
+
+    // Use actual dimensions for PDF output
     const pdfOptions = {
       path: outputPath,
       printBackground: true,
       margin: { top: 0, bottom: 0, left: 0, right: 0 },
-      width: `${a4WidthPx / 96}in`,
-      height: `${(a4HeightPx + 5) / 96}in`,
+      width: `${dimensions.width / 96}in`,
+      height: `${dimensions.height / 96}in`,
     };
 
     await page.pdf(pdfOptions);

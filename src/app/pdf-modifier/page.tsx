@@ -334,15 +334,51 @@ export default function PageModifyHtml() {
     container.addEventListener("click", () => container.focus());
     iframeWindow.addEventListener("keydown", onKeyDown);
 
-    // Confirm: keep textbox, just unselect to hide controls
+    // Confirm: convert textarea to actual HTML text
     confirmBtn.addEventListener("click", () => {
       const value = textarea.value.trim();
       if (!value) {
         alert("Please enter some text.");
         return;
       }
-      textarea.blur();
-      container.blur();
+      
+      // Replace textarea with a div containing the text
+      const textDiv = iframeDoc.createElement("div");
+      textDiv.className = "user-text-content";
+      textDiv.style.cssText = `
+        width: 100%;
+        height: 100%;
+        padding: 10px;
+        box-sizing: border-box;
+        white-space: pre-wrap;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+        color: #111;
+        font-size: 14px;
+        font-family: inherit;
+        line-height: 1.4;
+      `;
+      textDiv.textContent = value;
+      
+      // Remove textarea and controls
+      textarea.remove();
+      header.remove();
+      handleNW.remove();
+      handleNE.remove();
+      handleSE.remove();
+      handleSW.remove();
+      
+      // Add text div
+      container.appendChild(textDiv);
+      
+      // Update container to be non-interactive
+      container.style.cursor = "default";
+      container.style.border = "1px solid #ddd";
+      container.style.background = "rgba(255,255,255,0.95)";
+      
+      // Remove event listeners
+      iframeWindow.removeEventListener("mousemove", onMouseMove);
+      iframeWindow.removeEventListener("mouseup", onMouseUp);
       iframeWindow.removeEventListener("keydown", onKeyDown);
     });
     // Cancel

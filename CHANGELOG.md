@@ -400,6 +400,26 @@ interface ProcessedImageResult {
 ### Dependencies
 ## [Unreleased] - 2026-01-14
 
+### Fixed - PDF Export Positioning & Text Box Rendering
+
+#### PDF Image/Shape Positioning
+- Modified Puppeteer conversion script to detect and match actual HTML page dimensions instead of forcing A4 dimensions
+- Script now reads `.pf` page frame dimensions from the loaded HTML and uses those exact dimensions for viewport and PDF output
+- Eliminates positioning shifts between iframe display and PDF export for inserted images, shapes, and text boxes
+
+#### Text Box Conversion
+- Text box confirmation (✔ button) now converts the `<textarea>` element to a `<div>` with actual HTML text content
+- Text boxes now appear correctly in HTML downloads and PDF exports
+- Converted text boxes display with proper styling: white background, border, pre-wrapped text with line breaks preserved
+- Removed interactive controls after confirmation (drag handles, resize corners) to create static text element
+
+### Files Updated
+- [scripts/convert-html-to-pdf.js](scripts/convert-html-to-pdf.js): Dynamic page dimension detection via `page.evaluate()`
+- [src/app/pdf-modifier/page.tsx](src/app/pdf-modifier/page.tsx): Textarea-to-div conversion on confirm
+- [src/app/api/upload/html/convert-to-pdf/route.ts](src/app/api/upload/html/convert-to-pdf/route.ts): Enhanced print styles for inserted elements
+
+## [Unreleased] - 2026-01-14
+
 ### UX – Text, Images, Shapes
 - Text box insertion is now a standalone, draggable textarea created directly inside the iframe page. Controls (drag handle, ✔ confirm, ✖ cancel, resize corners) are shown only on focus and hidden on blur. Borders are transparent when unfocused. Enter blurs/unselects; Esc cancels.
 - Image insertion reworked to deselect any existing text selection first, prompt for target page in multi-page documents, and hide rotation/resize handles when unfocused. Image borders default to transparent and only appear when selected.

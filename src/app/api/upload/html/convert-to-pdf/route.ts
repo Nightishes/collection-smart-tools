@@ -128,6 +128,28 @@ html, body, div, span, p, h1, h2, h3, h4, h5, h6, img {
   print-color-adjust: exact !important;
   color-adjust: exact !important;
 }
+
+/* Fix inserted image positioning to match iframe display */
+.inserted-image-container,
+.text-box-container,
+div[class*="-shape-container"] {
+  position: absolute !important;
+  box-sizing: border-box !important;
+}
+
+/* Ensure .pf pages have consistent positioning in print */
+@media print {
+  .pf {
+    position: relative !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+  
+  body, html {
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+}
 </style>\n`;
 
       if (/<\/head>/i.test(src)) {
