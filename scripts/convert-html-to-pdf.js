@@ -44,8 +44,28 @@ const puppeteer = require("puppeteer");
       const pageFrame = document.querySelector('.pf');
       if (pageFrame) {
         // Use offsetWidth/Height for actual rendered dimensions
-        const width = pageFrame.offsetWidth || pageFrame.clientWidth;
-        const height = pageFrame.offsetHeight || pageFrame.clientHeight;
+        let width = pageFrame.offsetWidth || pageFrame.clientWidth;
+        let height = pageFrame.offsetHeight || pageFrame.clientHeight;
+        
+        // Check for .pc (page content) transform scale that might affect positioning
+        const pageContent = pageFrame.querySelector('.pc');
+        if (pageContent) {
+          const transform = window.getComputedStyle(pageContent).transform;
+          console.log(`Page content transform: ${transform}`);
+          // Extract scale from matrix if present (matrix(scaleX, skewY, skewX, scaleY, translateX, translateY))
+          if (transform && transform !== 'none') {
+            const match = transform.match(/matrix\(([^,]+),/);
+            if (match) {
+              const scale = parseFloat(match[1]);
+              if (scale > 0 && scale !== 1) {
+                console.log(`Detected scale factor: ${scale}`);
+                // Adjust dimensions if scaled
+                width = width / scale;
+                height = height / scale;
+              }
+            }
+          }
+        }
         
         if (width && height) {
           console.log(`Found .pf dimensions: ${width}x${height}px`);

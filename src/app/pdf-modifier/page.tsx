@@ -67,17 +67,25 @@ export default function PageModifyHtml() {
     if (iframeRef.current?.contentDocument) {
       const iframeDoc = iframeRef.current.contentDocument;
       
-      // Convert all textareas to divs with their actual content before exporting
-      const textareas = iframeDoc.querySelectorAll('.text-box-container textarea');
-      textareas.forEach((textarea) => {
-        const value = (textarea as HTMLTextAreaElement).value.trim();
+      // Create a serialized copy of the HTML to modify without affecting the live iframe
+      const serializer = new XMLSerializer();
+      const docClone = iframeDoc.documentElement.cloneNode(true) as HTMLElement;
+      
+      // Get all textareas and their values from the live document
+      const liveTextareas = Array.from(iframeDoc.querySelectorAll('.text-box-container textarea'));
+      const textareaValues = liveTextareas.map(ta => (ta as HTMLTextAreaElement).value);
+      
+      // Convert textareas to divs in the clone
+      const clonedTextareas = docClone.querySelectorAll('.text-box-container textarea');
+      clonedTextareas.forEach((textarea, index) => {
+        const value = textareaValues[index]?.trim();
         if (value) {
           const container = textarea.closest('.text-box-container') as HTMLElement;
           if (container) {
             // Create text div
-            const textDiv = iframeDoc.createElement('div');
+            const textDiv = document.createElement('div');
             textDiv.className = 'user-text-content';
-            textDiv.style.cssText = `
+            textDiv.setAttribute('style', `
               width: 100%;
               height: 100%;
               padding: 10px;
@@ -89,7 +97,7 @@ export default function PageModifyHtml() {
               font-size: 14px;
               font-family: inherit;
               line-height: 1.4;
-            `;
+            `);
             textDiv.textContent = value;
             
             // Remove textarea and controls
@@ -101,17 +109,12 @@ export default function PageModifyHtml() {
             
             // Add text div and finalize container
             container.appendChild(textDiv);
-            container.style.cursor = 'default';
-            container.style.border = '1px solid #ddd';
-            container.style.background = 'rgba(255,255,255,0.95)';
+            container.setAttribute('style', container.getAttribute('style') + '; cursor: default; border: 1px solid #ddd; background: rgba(255,255,255,0.95);');
           }
         }
       });
       
-      const iframeHtml = iframeDoc.documentElement.outerHTML;
-      if (iframeHtml) {
-        htmlToDownload = iframeHtml;
-      }
+      htmlToDownload = '<!DOCTYPE html>' + serializer.serializeToString(docClone);
     }
     
     handleDownload({ modifiedHtml: htmlToDownload, lastHtmlName, format });

@@ -400,6 +400,46 @@ interface ProcessedImageResult {
 ### Dependencies
 ## [Unreleased] - 2026-01-14
 
+### Fixed - PDF Export Positioning & Text Box Rendering (v3)
+
+#### Text Box Serialization Fix
+- Changed download handler to use `XMLSerializer` with cloned DOM nodes instead of modifying live iframe
+- Properly extracts textarea values from live DOM and applies to cloned nodes before serialization
+- Ensures textarea content is converted to static divs in HTML output without affecting the editor
+- Fixes issue where placeholder text appeared instead of actual user input
+
+#### Scale-Aware Dimension Detection
+- Added detection of `.pc` (page content) transform scale that pdf2htmlEX may apply
+- Extracts scale factor from CSS transform matrix and adjusts page dimensions accordingly
+- Prevents positioning shifts caused by scaled page content
+- Logs transform and scale values for debugging
+
+### Files Updated
+- [src/app/pdf-modifier/page.tsx](src/app/pdf-modifier/page.tsx): XMLSerializer with value extraction
+- [scripts/convert-html-to-pdf.js](scripts/convert-html-to-pdf.js): Transform scale detection
+
+## [Unreleased] - 2026-01-14
+
+### Fixed - PDF Export Positioning & Text Box Rendering (v2)
+
+#### Text Box Export Fix
+- Download handler now automatically converts all active textareas to HTML divs before export
+- Captures actual textarea values and converts them to static text content
+- Ensures text appears correctly in both HTML and PDF downloads without requiring manual confirmation
+- Removes interactive controls (resize handles, drag header) during export process
+
+#### Page Dimension Detection Improvements  
+- Changed dimension detection to use `offsetWidth`/`offsetHeight` instead of computed styles for more accurate measurements
+- Added fallback to `#page-container` scrollWidth/Height when `.pf` detection fails
+- Improved console logging to track which dimension source is used
+- Prevents vertical positioning shifts by matching exact rendered page dimensions
+
+### Files Updated
+- [src/app/pdf-modifier/page.tsx](src/app/pdf-modifier/page.tsx): Auto-convert textareas on download
+- [scripts/convert-html-to-pdf.js](scripts/convert-html-to-pdf.js): Better dimension detection with multiple fallbacks
+
+## [Unreleased] - 2026-01-14
+
 ### Fixed - PDF Export Positioning & Text Box Rendering
 
 #### PDF Image/Shape Positioning
