@@ -5,3 +5,4 @@
 
 export { useFileUpload } from "./useFileUpload";
 export { useHtmlModifier } from "./useHtmlModifier";
+export { useInsertionHandlers } from "./useInsertionHandlers";

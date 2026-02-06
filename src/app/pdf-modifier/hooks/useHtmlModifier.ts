@@ -12,18 +12,46 @@ import {
 } from "../../../lib/htmlModify";
 import { ModifyOptions, StyleInfo } from "../types";
 
-export function useHtmlModifier() {
+const useContentState = () => {
   const [lastHtmlName, setLastHtmlName] = useState<string | null>(null);
   const [htmlContent, setHtmlContent] = useState<string | null>(null);
   const [originalHtml, setOriginalHtml] = useState<string | null>(null);
   const [modifiedHtml, setModifiedHtml] = useState<string | null>(null);
   const [contentVersion, setContentVersion] = useState<number>(0);
+
+  return {
+    lastHtmlName,
+    setLastHtmlName,
+    htmlContent,
+    setHtmlContent,
+    originalHtml,
+    setOriginalHtml,
+    modifiedHtml,
+    setModifiedHtml,
+    contentVersion,
+    setContentVersion,
+  };
+};
+
+const useSelectionState = () => {
   const [selectedElement, setSelectedElement] = useState<number[] | null>(null);
   const [selectedElementClasses, setSelectedElementClasses] = useState<{
     fcClass: string | null;
     fsClass: string | null;
   }>({ fcClass: null, fsClass: null });
   const [moveDistance, setMoveDistance] = useState<number>(10);
+
+  return {
+    selectedElement,
+    setSelectedElement,
+    selectedElementClasses,
+    setSelectedElementClasses,
+    moveDistance,
+    setMoveDistance,
+  };
+};
+
+const useStyleState = () => {
   const [imageList, setImageList] = useState<ImageInfo[]>([]);
   const [styleInfo, setStyleInfo] = useState<StyleInfo>({
     fontColors: [],
@@ -32,26 +60,43 @@ export function useHtmlModifier() {
   const [fcOverrides, setFcOverrides] = useState<Record<string, string>>({});
   const [fsOverrides, setFsOverrides] = useState<Record<string, string>>({});
 
-  // Store original styleInfo for reset functionality
   const originalStyleInfoRef = useRef<StyleInfo>({
     fontColors: [],
     fontSizes: [],
   });
 
+  return {
+    imageList,
+    setImageList,
+    styleInfo,
+    setStyleInfo,
+    fcOverrides,
+    setFcOverrides,
+    fsOverrides,
+    setFsOverrides,
+    originalStyleInfoRef,
+  };
+};
+
+const useOptionsState = () => {
   const [options, setOptions] = useState<ModifyOptions>({
     bgColor: "#ffffff",
     removeDataImages: false,
     reorganizeContainers: false,
   });
 
-  // Work entirely in memory - only save to server on download
-  const workingCopyCache = useRef<string | null>(null);
+  return { options, setOptions };
+};
 
-  // Store both versions of HTML (original and reorganized)
+const useHtmlCaches = (
+  setModifiedHtml: (html: string | null) => void,
+  setHtmlContent: (html: string | null) => void,
+  setContentVersion: (update: (v: number) => number) => void
+) => {
+  const workingCopyCache = useRef<string | null>(null);
   const originalHtmlCache = useRef<string | null>(null);
   const reorganizedHtmlCache = useRef<string | null>(null);
 
-  // Get current working copy (always from memory cache)
   const getWorkingCopy = useCallback((): string | null => {
     if (workingCopyCache.current) {
       console.log(
@@ -65,22 +110,77 @@ export function useHtmlModifier() {
     return null;
   }, []);
 
-  // Update in-memory copy and update preview
-  const updateWorkingCopy = useCallback((html: string) => {
-    console.log(
-      "updateWorkingCopy: Updating in-memory copy",
-      html.length,
-      "bytes"
-    );
+  const updateWorkingCopy = useCallback(
+    (html: string) => {
+      console.log(
+        "updateWorkingCopy: Updating in-memory copy",
+        html.length,
+        "bytes"
+      );
 
-    // Update cache and state
-    workingCopyCache.current = html;
-    setModifiedHtml(html);
-    setHtmlContent(html);
-    setContentVersion((v) => v + 1);
+      workingCopyCache.current = html;
+      setModifiedHtml(html);
+      setHtmlContent(html);
+      setContentVersion((v) => v + 1);
 
-    console.log("updateWorkingCopy: Updated state and cache");
-  }, []);
+      console.log("updateWorkingCopy: Updated state and cache");
+    },
+    [setContentVersion, setHtmlContent, setModifiedHtml]
+  );
+
+  return {
+    workingCopyCache,
+    originalHtmlCache,
+    reorganizedHtmlCache,
+    getWorkingCopy,
+    updateWorkingCopy,
+  };
+};
+
+export function useHtmlModifier() {
+  const {
+    lastHtmlName,
+    setLastHtmlName,
+    htmlContent,
+    setHtmlContent,
+    originalHtml,
+    setOriginalHtml,
+    modifiedHtml,
+    setModifiedHtml,
+    contentVersion,
+    setContentVersion,
+  } = useContentState();
+
+  const {
+    selectedElement,
+    setSelectedElement,
+    selectedElementClasses,
+    setSelectedElementClasses,
+    moveDistance,
+    setMoveDistance,
+  } = useSelectionState();
+
+  const {
+    imageList,
+    setImageList,
+    styleInfo,
+    setStyleInfo,
+    fcOverrides,
+    setFcOverrides,
+    fsOverrides,
+    setFsOverrides,
+    originalStyleInfoRef,
+  } = useStyleState();
+
+  const { options, setOptions } = useOptionsState();
+
+  const {
+    workingCopyCache,
+    originalHtmlCache,
+    reorganizedHtmlCache,
+    getWorkingCopy,
+    updateWorkingCopy,
+  } = useHtmlCaches(setModifiedHtml, setHtmlContent, setContentVersion);
 
   // Reorganize structure: merge full-page containers and move siblings inside them
   // WARNING: This is experimental and may break some PDFs
