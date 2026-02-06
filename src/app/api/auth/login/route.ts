@@ -1,12 +1,8 @@
 export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
-import {
-  validateCredentials,
-  generateToken,
-  checkRateLimit,
-} from "@/lib/jwtAuth";
-import { parseJsonSafely } from "@/lib/inputValidation";
+import { validateCredentials, generateToken } from "@/lib/jwtAuth";
+import { parseJsonBody, requireRateLimit } from "@/app/api/_utils/request";
 
 /**
  * POST /api/auth/login
@@ -16,20 +12,16 @@ import { parseJsonSafely } from "@/lib/inputValidation";
 export async function POST(req: Request) {
   try {
     // Rate limiting
-    const rateCheck = await checkRateLimit(req);
-    if (!rateCheck.allowed) {
-      return NextResponse.json({ error: rateCheck.message }, { status: 429 });
-    }
+    const rateLimitResponse = await requireRateLimit(req);
+    if (rateLimitResponse) return rateLimitResponse;
 
     // Parse JSON with safety limits
-    const jsonResult = await parseJsonSafely(req, {
+    const jsonResult = await parseJsonBody(req, {
       maxSize: 1024, // 1KB for credentials
       maxDepth: 3,
       maxKeys: 10,
     });
-    if (!jsonResult.success) {
-      return NextResponse.json({ error: jsonResult.error }, { status: 400 });
-    }
+    if (jsonResult.errorResponse) return jsonResult.errorResponse;
     const { username, password } = jsonResult.data as {
       username: string;
       password: string;

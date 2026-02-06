@@ -8,7 +8,7 @@
     "start": "next start",
     "lint": "eslint",
     "test": "vitest",
-    "docker:build": "docker build -f Dockerfile.pdf2html -t pdf2html:latest . ; docker build -f Dockerfile.puppeteer -t collection-tools-puppeteer . ; docker build -f Dockerfile.tesseract -t collection-tools-tesseract . ; docker-compose pull clamav",
+    "docker:build": "docker build -f Dockerfile.pdf2html -t pdf2html:latest . && docker build -f Dockerfile.puppeteer -t collection-tools-puppeteer . && docker build -f Dockerfile.tesseract -t collection-tools-tesseract . && docker-compose pull clamav",
     "docker:test": "powershell -ExecutionPolicy Bypass -File ./test-docker-containers.ps1",
     "docker:up": "docker-compose up -d",
     "docker:down": "docker-compose down",
@@ -29,6 +29,7 @@
     "mammoth": "^1.11.0",
     "next": "^16.0.7",
     "pdf-parse": "^2.4.5",
+    "pdf-lib": "^1.17.1",
     "react": "19.2.0",
     "react-dom": "19.2.0",
     "redis": "^5.10.0"

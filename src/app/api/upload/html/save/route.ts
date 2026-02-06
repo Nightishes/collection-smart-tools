@@ -1,33 +1,27 @@
 export const runtime = "nodejs";
 
-import fs from "fs/promises";
-import path from "path";
 import { modifyHtml } from "../../helpers/htmlModify";
-import { checkRateLimit } from "@/lib/jwtAuth";
-import { sanitizeHtml, isPdf2HtmlExContent } from "@/lib/sanitize";
-import { parseJsonSafely } from "@/lib/inputValidation";
+import { jsonError, requireRateLimit, parseJsonBody } from "@/app/api/_utils/request";
+import { sanitizePdf2HtmlAware } from "@/app/api/_utils/html";
+import {
+  ensureUploadsDir,
+  resolveUploadPath,
+  readUploadText,
+} from "@/app/api/_utils/uploads";
 
 export async function POST(req: Request) {
   try {
     // Rate limiting
-    const rateCheck = await checkRateLimit(req);
-    if (!rateCheck.allowed) {
-      return new Response(JSON.stringify({ error: rateCheck.message }), {
-        status: 429,
-      });
-    }
+    const rateLimitResponse = await requireRateLimit(req);
+    if (rateLimitResponse) return rateLimitResponse;
 
     // Parse JSON with safety limits
-    const jsonResult = await parseJsonSafely(req, {
+    const jsonResult = await parseJsonBody(req, {
       maxSize: 15 * 1024 * 1024, // 15MB for HTML content
       maxDepth: 10,
       maxKeys: 50,
     });
-    if (!jsonResult.success) {
-      return new Response(JSON.stringify({ error: jsonResult.error }), {
-        status: 400,
-      });
-    }
+    if (jsonResult.errorResponse) return jsonResult.errorResponse;
     const body = jsonResult.data as {
       modifiedHtml?: string;
       filename: string;
@@ -43,23 +37,9 @@ export async function POST(req: Request) {
 
       // Sanitize filename - only allow safe characters
       const safeName = filename.replace(/[^a-zA-Z0-9.-]/g, "_");
-      const uploadsDir = path.join(process.cwd(), "uploads");
-      const filePath = path.join(uploadsDir, safeName);
-
-      // Ensure uploads directory exists
-      try {
-        await fs.access(uploadsDir);
-      } catch {
-        await fs.mkdir(uploadsDir, { recursive: true });
-      }
-
-      // Sanitize HTML to prevent XSS (preserve pdf2htmlEX content if detected)
-      const isPdf2Html = isPdf2HtmlExContent(content);
-      const sanitized = sanitizeHtml(content, {
-        preservePdf2HtmlEx: isPdf2Html,
-      });
-
-      // Write the HTML content to file
+      await ensureUploadsDir();
+      const filePath = resolveUploadPath(safeName);
+      const sanitized = sanitizePdf2HtmlAware(content);
       await fs.writeFile(filePath, sanitized, "utf8");
 
       return new Response(
@@ -77,21 +57,18 @@ export async function POST(req: Request) {
     // Original functionality - modify existing file
     const file = String(body?.file || "");
     if (!file)
-      return new Response(JSON.stringify({ error: "file is required" }), {
-        status: 400,
-      });
+      return jsonError("file is required", 400);
 
     // options
     const opts = body?.options || {};
 
     const safeName = path.basename(file);
-    const uploadsDir = path.join(process.cwd(), "uploads");
-    const filePath = path.join(uploadsDir, safeName);
+    const filePath = resolveUploadPath(safeName);
 
     // ensure file exists
     await fs.access(filePath);
 
-    const original = await fs.readFile(filePath, "utf8");
+    const original = await readUploadText(safeName);
 
     // modify server-side using shared helper to ensure consistency
     const { modifiedHtml, imagesRemoved, imageList } = modifyHtml(
@@ -100,14 +77,11 @@ export async function POST(req: Request) {
     );
 
     // Sanitize HTML to prevent XSS (preserve pdf2htmlEX content if detected)
-    const isPdf2Html = isPdf2HtmlExContent(modifiedHtml);
-    const sanitized = sanitizeHtml(modifiedHtml, {
-      preservePdf2HtmlEx: isPdf2Html,
-    });
+    const sanitized = sanitizePdf2HtmlAware(modifiedHtml);
 
     // save as modified-<safeName> to avoid overwriting original
     const outName = `modified-${safeName}`;
-    const outPath = path.join(uploadsDir, outName);
+    const outPath = resolveUploadPath(outName);
     await fs.writeFile(outPath, sanitized, "utf8");
 
     return new Response(
@@ -122,8 +96,6 @@ export async function POST(req: Request) {
   } catch (err: unknown) {
     const errorMessage = err instanceof Error ? err.message : String(err);
     console.error("Save modified HTML error", errorMessage);
-    return new Response(JSON.stringify({ error: errorMessage }), {
-      status: 500,
-    });
+    return jsonError(errorMessage, 500);
   }
 }

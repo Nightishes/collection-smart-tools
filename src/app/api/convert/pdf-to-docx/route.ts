@@ -3,9 +3,13 @@ import path from "path";
 import fs from "fs/promises";
 import { PDFParse as PDFParser } from "pdf-parse";
 import { Document, Packer, Paragraph, TextRun } from "docx";
-import { checkRateLimit, getAuthUser, getMaxFileSize } from "@/lib/jwtAuth";
-import { XXE_SAFE_XML_CONFIG } from "@/lib/inputValidation";
-import { validatePdfMagic } from "@/lib/sanitize";
+import { getAuthUser } from "@/lib/jwtAuth";
+import { requireRateLimit } from "@/app/api/_utils/request";
+import {
+  getUserMaxSize,
+  validatePdfSize,
+  validatePdfUpload,
+} from "@/app/api/_utils/validateUpload";
 import { convertPdfToHtml } from "@/app/api/upload/helpers/convert";
 import { convertHtmlToFormattedDocx } from "@/lib/htmlToFormattedDocx";
 
@@ -22,14 +26,12 @@ export const runtime = "nodejs";
 export async function POST(req: Request) {
   try {
     // Rate limiting
-    const rateCheck = await checkRateLimit(req);
-    if (!rateCheck.allowed) {
-      return NextResponse.json({ error: rateCheck.message }, { status: 429 });
-    }
+    const rateLimitResponse = await requireRateLimit(req);
+    if (rateLimitResponse) return rateLimitResponse;
 
     // Auth check
     const user = getAuthUser(req);
-    const maxSize = getMaxFileSize(user);
+    const maxSize = getUserMaxSize(req);
 
     const form = await req.formData();
     const file = form.get("file");
@@ -48,14 +50,13 @@ export async function POST(req: Request) {
     }
 
     // Size check (also mitigates XXE DoS attacks via huge files)
-    const xxeSafeMaxSize = Math.min(maxSize, XXE_SAFE_XML_CONFIG.maxSize);
-    if (file.size > xxeSafeMaxSize) {
-      const limitMB = Math.floor(xxeSafeMaxSize / (1024 * 1024));
+    const sizeCheck = validatePdfSize(file.size, maxSize);
+    if (!sizeCheck.ok) {
       return NextResponse.json(
         {
-          error: `File too large (max ${limitMB}MB${
+          error: `${sizeCheck.error}${
             !user.isAuthenticated ? " for unauthenticated users" : ""
-          })`,
+          }`,
         },
         { status: 413 }
       );
@@ -64,8 +65,9 @@ export async function POST(req: Request) {
     const buffer = Buffer.from(await file.arrayBuffer());
 
     // Magic number validation
-    if (!validatePdfMagic(buffer)) {
-      return NextResponse.json({ error: "Invalid PDF file" }, { status: 400 });
+    const magicCheck = validatePdfUpload(buffer);
+    if (!magicCheck.ok) {
+      return NextResponse.json({ error: magicCheck.error }, { status: 400 });
     }
 
     let docxBuffer: Buffer;

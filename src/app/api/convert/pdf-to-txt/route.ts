@@ -1,7 +1,12 @@
 import { NextResponse } from "next/server";
 import { PDFParse } from "pdf-parse";
-import { checkRateLimit, getAuthUser, getMaxFileSize } from "@/lib/jwtAuth";
-import { validatePdfMagic } from "@/lib/sanitize";
+import { getAuthUser } from "@/lib/jwtAuth";
+import { requireRateLimit } from "@/app/api/_utils/request";
+import {
+  getUserMaxSize,
+  validatePdfSize,
+  validatePdfUpload,
+} from "@/app/api/_utils/validateUpload";
 
 export const runtime = "nodejs";
 
@@ -13,14 +18,12 @@ export const runtime = "nodejs";
 export async function POST(req: Request) {
   try {
     // Rate limiting
-    const rateCheck = await checkRateLimit(req);
-    if (!rateCheck.allowed) {
-      return NextResponse.json({ error: rateCheck.message }, { status: 429 });
-    }
+    const rateLimitResponse = await requireRateLimit(req);
+    if (rateLimitResponse) return rateLimitResponse;
 
     // Auth check
     const user = getAuthUser(req);
-    const maxSize = getMaxFileSize(user);
+    const maxSize = getUserMaxSize(req);
 
     const form = await req.formData();
     const file = form.get("file");
@@ -38,13 +41,13 @@ export async function POST(req: Request) {
     }
 
     // Size check
-    if (file.size > maxSize) {
-      const limitMB = Math.floor(maxSize / (1024 * 1024));
+    const sizeCheck = validatePdfSize(file.size, maxSize);
+    if (!sizeCheck.ok) {
       return NextResponse.json(
         {
-          error: `File too large (max ${limitMB}MB${
+          error: `${sizeCheck.error}${
             !user.isAuthenticated ? " for unauthenticated users" : ""
-          })`,
+          }`,
         },
         { status: 413 }
       );
@@ -53,8 +56,9 @@ export async function POST(req: Request) {
     const buf = Buffer.from(await file.arrayBuffer());
 
     // Magic number validation
-    if (!validatePdfMagic(buf)) {
-      return NextResponse.json({ error: "Invalid PDF file" }, { status: 400 });
+    const magicCheck = validatePdfUpload(buf);
+    if (!magicCheck.ok) {
+      return NextResponse.json({ error: magicCheck.error }, { status: 400 });
     }
     const parser = new PDFParse({ data: buf });
     const data = await parser.parse();

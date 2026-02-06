@@ -4,8 +4,9 @@ import { NextResponse } from "next/server";
 import path from "path";
 import fs from "fs/promises";
 import "@/lib/autoCleanup";
-import { checkRateLimit } from "@/lib/jwtAuth";
+import { requireRateLimit } from "@/app/api/_utils/request";
 import { validateFilenameParam } from "@/lib/inputValidation";
+import { readUploadBuffer } from "@/app/api/_utils/uploads";
 
 /**
  * GET /api/upload/pdf?file=<filename>
@@ -14,10 +15,8 @@ import { validateFilenameParam } from "@/lib/inputValidation";
 export async function GET(req: Request) {
   try {
     // Rate limiting
-    const rateCheck = await checkRateLimit(req);
-    if (!rateCheck.allowed) {
-      return NextResponse.json({ error: rateCheck.message }, { status: 429 });
-    }
+    const rateLimitResponse = await requireRateLimit(req);
+    if (rateLimitResponse) return rateLimitResponse;
 
     const url = new URL(req.url);
     const fileParam = url.searchParams.get("file");
@@ -29,14 +28,12 @@ export async function GET(req: Request) {
     }
 
     const safe = validation.sanitized!;
-    const uploadsDir = path.join(process.cwd(), "uploads");
-    const abs = path.join(uploadsDir, safe);
+    let data: Buffer;
     try {
-      await fs.access(abs);
+      data = await readUploadBuffer(safe);
     } catch {
       return NextResponse.json({ error: "File not found" }, { status: 404 });
     }
-    const data = await fs.readFile(abs);
     return new NextResponse(data, {
       status: 200,
       headers: {

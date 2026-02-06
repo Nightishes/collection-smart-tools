@@ -1,14 +1,17 @@
 import { NextResponse } from "next/server";
 import * as mammoth from "mammoth";
-import { checkRateLimit, getAuthUser, getMaxFileSize } from "@/lib/jwtAuth";
+import { getAuthUser } from "@/lib/jwtAuth";
 import { validateDocxMagic, sanitizeHtml } from "@/lib/sanitize";
-import {
-  validateFormatParam,
-  XXE_SAFE_XML_CONFIG,
-} from "@/lib/inputValidation";
+import { validateFormatParam } from "@/lib/inputValidation";
 import { scanFile } from "@/lib/virusScanner";
 import fs from "fs/promises";
 import path from "path";
+import { requireRateLimit } from "@/app/api/_utils/request";
+import {
+  getUserMaxSize,
+  validateDocxSize,
+  validateDocxUpload,
+} from "@/app/api/_utils/validateUpload";
 
 export const runtime = "nodejs";
 
@@ -22,14 +25,12 @@ export const runtime = "nodejs";
 export async function POST(req: Request) {
   try {
     // Rate limiting
-    const rateCheck = await checkRateLimit(req);
-    if (!rateCheck.allowed) {
-      return NextResponse.json({ error: rateCheck.message }, { status: 429 });
-    }
+    const rateLimitResponse = await requireRateLimit(req);
+    if (rateLimitResponse) return rateLimitResponse;
 
     // Auth check
     const user = getAuthUser(req);
-    const maxSize = getMaxFileSize(user);
+    const maxSize = getUserMaxSize(req);
 
     const formData = await req.formData();
     const file = formData.get("file");
@@ -59,14 +60,13 @@ export async function POST(req: Request) {
     }
 
     // Size check (also mitigates XXE DoS attacks via huge XML files)
-    const xxeSafeMaxSize = Math.min(maxSize, XXE_SAFE_XML_CONFIG.maxSize);
-    if (file.size > xxeSafeMaxSize) {
-      const limitMB = Math.floor(xxeSafeMaxSize / (1024 * 1024));
+    const sizeCheck = validateDocxSize(file.size, maxSize);
+    if (!sizeCheck.ok) {
       return NextResponse.json(
         {
-          error: `File too large (max ${limitMB}MB${
+          error: `${sizeCheck.error}${
             !user.isAuthenticated ? " for unauthenticated users" : ""
-          })`,
+          }`,
         },
         { status: 413 }
       );
@@ -76,8 +76,9 @@ export async function POST(req: Request) {
     const buffer = Buffer.from(arrayBuffer);
 
     // Magic number validation
-    if (!validateDocxMagic(buffer)) {
-      return NextResponse.json({ error: "Invalid DOCX file" }, { status: 400 });
+    const magicCheck = validateDocxUpload(buffer);
+    if (!magicCheck.ok) {
+      return NextResponse.json({ error: magicCheck.error }, { status: 400 });
     }
 
     // Virus scan: Write to temp file, scan, then delete

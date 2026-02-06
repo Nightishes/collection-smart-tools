@@ -7,8 +7,8 @@ import path from "path";
 import { execFile as _execFile } from "child_process";
 import { promisify } from "util";
 import { checkRateLimit, getAuthUser, getMaxFileSize } from "@/lib/jwtAuth";
-import { sanitizeHtml } from "@/lib/sanitize";
-import { parseJsonSafely } from "@/lib/inputValidation";
+import { sanitizePdf2HtmlAware } from "@/app/api/_utils/html";
+import { jsonError, parseJsonBody, requireRateLimit } from "@/app/api/_utils/request";
 
 const execFile = promisify(_execFile);
 
@@ -22,28 +22,20 @@ type Body = {
 export async function POST(req: Request) {
   try {
     // Rate limiting
-    const rateCheck = await checkRateLimit(req);
-    if (!rateCheck.allowed) {
-      return new Response(JSON.stringify({ error: rateCheck.message }), {
-        status: 429,
-      });
-    }
+    const rateLimitResponse = await requireRateLimit(req);
+    if (rateLimitResponse) return rateLimitResponse;
 
     // Auth check
     const user = getAuthUser(req);
     const maxSize = getMaxFileSize(user);
 
     // Parse JSON with safety limits
-    const jsonResult = await parseJsonSafely(req, {
+    const jsonResult = await parseJsonBody(req, {
       maxSize: 15 * 1024 * 1024, // 15MB for HTML content
       maxDepth: 10,
       maxKeys: 50,
     });
-    if (!jsonResult.success) {
-      return new Response(JSON.stringify({ error: jsonResult.error }), {
-        status: 400,
-      });
-    }
+    if (jsonResult.errorResponse) return jsonResult.errorResponse;
     const body = jsonResult.data as Body;
 
     let html: string | null = null;
@@ -59,10 +51,7 @@ export async function POST(req: Request) {
     }
 
     if (!html) {
-      return new Response(
-        JSON.stringify({ error: "html or file is required" }),
-        { status: 400 }
-      );
+      return jsonError("html or file is required", 400);
     }
 
     // Log first part of HTML for debugging
@@ -77,11 +66,7 @@ export async function POST(req: Request) {
     }
 
     // Sanitize HTML to prevent XSS, but preserve pdf2htmlEX content (including data URI images)
-    const isPdf2Html =
-      html.includes("Created by pdf2htmlEX") ||
-      html.includes('name="generator" content="pdf2htmlEX"') ||
-      html.includes("Base CSS for pdf2htmlEX");
-    html = sanitizeHtml(html, { preservePdf2HtmlEx: isPdf2Html });
+    html = sanitizePdf2HtmlAware(html);
 
     // Log after sanitization to verify CSS is preserved
     const yClassMatchesAfter = html.match(
@@ -195,17 +180,22 @@ div[class*="-shape-container"] {
       `Starting Docker conversion: ${containerIn} -> ${containerOut}`
     );
     try {
+      const dockerArgs = [
+        "run",
+        "--rm",
+        "-v",
+        `${uploads}:/data`,
+      ];
+
+      if (process.env.EXPORT_SCREENSHOTS) {
+        dockerArgs.push("-e", `EXPORT_SCREENSHOTS=${process.env.EXPORT_SCREENSHOTS}`);
+      }
+
+      dockerArgs.push(dockerImage, containerIn, containerOut);
+
       const { stdout, stderr } = await execFile(
         "docker",
-        [
-          "run",
-          "--rm",
-          "-v",
-          `${uploads}:/data`,
-          dockerImage,
-          containerIn,
-          containerOut,
-        ],
+        dockerArgs,
         {
           timeout: 120_000,
           maxBuffer: 10 * 1024 * 1024, // 10MB buffer for output

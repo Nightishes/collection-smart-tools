@@ -7,7 +7,8 @@ import { saveUploadedFile } from "./helpers/upload";
 import { convertPdfToHtml } from "./helpers/convert";
 import { scanUploadedFile } from "@/lib/virusScanner";
 import path from "path";
-import { checkRateLimit, getAuthUser, getMaxFileSize } from "@/lib/jwtAuth";
+import { getAuthUser, getMaxFileSize } from "@/lib/jwtAuth";
+import { requireRateLimit, jsonError } from "@/app/api/_utils/request";
 import { sanitizeFilename, validatePdfMagic } from "@/lib/sanitize";
 
 // Route segment config for Next.js 16
@@ -101,10 +102,8 @@ async function parseMultipartForm(
 export async function POST(req: Request) {
   try {
     // Rate limiting
-    const rateCheck = await checkRateLimit(req);
-    if (!rateCheck.allowed) {
-      return NextResponse.json({ error: rateCheck.message }, { status: 429 });
-    }
+    const rateLimitResponse = await requireRateLimit(req);
+    if (rateLimitResponse) return rateLimitResponse;
 
     // Auth check
     const user = getAuthUser(req);
@@ -119,13 +118,11 @@ export async function POST(req: Request) {
 
       if (error.message === "FILE_TOO_LARGE") {
         const limitMB = Math.floor(maxSize / (1024 * 1024));
-        return NextResponse.json(
-          {
-            error: `File too large (max ${limitMB}MB${
-              !user.isAuthenticated ? " for unauthenticated users" : ""
-            })`,
-          },
-          { status: 413 }
+        return jsonError(
+          `File too large (max ${limitMB}MB${
+            !user.isAuthenticated ? " for unauthenticated users" : ""
+          })`,
+          413
         );
       }
 
@@ -142,15 +139,12 @@ export async function POST(req: Request) {
     const lower = originalName.toLowerCase();
 
     if (!lower.endsWith(".pdf")) {
-      return NextResponse.json(
-        { error: "Only PDF files are allowed" },
-        { status: 400 }
-      );
+      return jsonError("Only PDF files are allowed", 400);
     }
 
     // Magic number validation
     if (!validatePdfMagic(buffer)) {
-      return NextResponse.json({ error: "Invalid PDF file" }, { status: 400 });
+      return jsonError("Invalid PDF file", 400);
     }
 
     const sanitizedName = sanitizeFilename(originalName, ".pdf");
@@ -204,9 +198,6 @@ export async function POST(req: Request) {
     return NextResponse.json({ success: true, filename: result.filename });
   } catch (err) {
     console.error("Upload error", err);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 }
-    );
+    return jsonError("Internal server error", 500);
   }
 }

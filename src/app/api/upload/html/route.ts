@@ -1,21 +1,17 @@
 export const runtime = "nodejs";
 
 import fs from "fs/promises";
-import path from "path";
-import { checkRateLimit } from "@/lib/jwtAuth";
-import { sanitizeHtml, isPdf2HtmlExContent } from "@/lib/sanitize";
+import { jsonError, requireRateLimit } from "@/app/api/_utils/request";
+import { sanitizePdf2HtmlAware } from "@/app/api/_utils/html";
 import compression from "@/lib/compression";
 import { validateFilenameParam } from "@/lib/inputValidation";
+import { readUploadText } from "@/app/api/_utils/uploads";
 
 export async function GET(req: Request) {
   try {
     // Rate limiting
-    const rateCheck = await checkRateLimit(req);
-    if (!rateCheck.allowed) {
-      return new Response(JSON.stringify({ error: rateCheck.message }), {
-        status: 429,
-      });
-    }
+    const rateLimitResponse = await requireRateLimit(req);
+    if (rateLimitResponse) return rateLimitResponse;
 
     const url = new URL(req.url);
     const file = url.searchParams.get("file");
@@ -23,24 +19,13 @@ export async function GET(req: Request) {
     // Validate filename parameter
     const validation = validateFilenameParam(file, [".html"]);
     if (!validation.valid) {
-      return new Response(JSON.stringify({ error: validation.error }), {
-        status: 400,
-      });
+      return jsonError(validation.error || "Invalid filename", 400);
     }
 
     // Use validated filename
     const safeName = validation.sanitized!;
-    const uploadsDir = path.join(process.cwd(), "uploads");
-    const filePath = path.join(uploadsDir, safeName);
-
-    // simple existence check
-    await fs.access(filePath);
-
-    const content = await fs.readFile(filePath, "utf8");
-
-    // Preserve pdf2htmlEX content (including data URI images)
-    const isPdf2Html = isPdf2HtmlExContent(content);
-    const sanitized = sanitizeHtml(content, { preservePdf2HtmlEx: isPdf2Html });
+    const content = await readUploadText(safeName);
+    const sanitized = sanitizePdf2HtmlAware(content);
 
     // Apply compression if client supports it
     const acceptEncoding = req.headers.get("accept-encoding");
@@ -57,8 +42,6 @@ export async function GET(req: Request) {
     return new Response(result.data as BodyInit, { headers });
   } catch (err: any) {
     console.error("Error serving html", err?.message || err);
-    return new Response(JSON.stringify({ error: "Not found" }), {
-      status: 404,
-    });
+    return jsonError("Not found", 404);
   }
 }

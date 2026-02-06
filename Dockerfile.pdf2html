@@ -1,26 +1,26 @@
-FROM ubuntu:22.04
+FROM ukwa/pdf2htmlex:latest
 
-ENV DEBIAN_FRONTEND=noninteractive
-
-# Install pdf2htmlEX and its dependencies
-RUN apt-get update && apt-get install -y \
-    pdf2htmlex \
-    && rm -rf /var/lib/apt/lists/*
-
-# Copy compatibility.js - replace symlink with actual file
-COPY docker-assets/compatibility.js /usr/share/pdf.js/compatibility.js
-RUN rm -f /usr/share/pdf2htmlEX/compatibility.js && \
-    cp /usr/share/pdf.js/compatibility.js /usr/share/pdf2htmlEX/compatibility.js
+# Copy compatibility.js - replace symlink with actual file (if paths exist)
+COPY docker-assets/compatibility.js /tmp/compatibility.js
+RUN if [ -f /tmp/compatibility.js ]; then \
+            if [ -d /usr/share/pdf.js ]; then \
+                cp /tmp/compatibility.js /usr/share/pdf.js/compatibility.js; \
+            fi; \
+            if [ -d /usr/share/pdf2htmlEX ]; then \
+                rm -f /usr/share/pdf2htmlEX/compatibility.js; \
+                cp /tmp/compatibility.js /usr/share/pdf2htmlEX/compatibility.js; \
+            fi; \
+        fi
 
 WORKDIR /pdf
 
 # Create non-root user for security
 RUN groupadd -r pdfuser && useradd -r -g pdfuser pdfuser \
     && chown -R pdfuser:pdfuser /pdf \
-    && chmod -R 755 /usr/share/pdf2htmlEX \
-    && chmod -R 755 /usr/share/pdf.js \
-    && chmod 644 /usr/share/pdf.js/compatibility.js \
-    && chmod 644 /usr/share/pdf2htmlEX/compatibility.js
+    && if [ -d /usr/share/pdf2htmlEX ]; then chmod -R 755 /usr/share/pdf2htmlEX; fi \
+    && if [ -d /usr/share/pdf.js ]; then chmod -R 755 /usr/share/pdf.js; fi \
+    && if [ -f /usr/share/pdf.js/compatibility.js ]; then chmod 644 /usr/share/pdf.js/compatibility.js; fi \
+    && if [ -f /usr/share/pdf2htmlEX/compatibility.js ]; then chmod 644 /usr/share/pdf2htmlEX/compatibility.js; fi
 
 # Switch to non-root user
 USER pdfuser

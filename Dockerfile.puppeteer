@@ -54,12 +54,12 @@ RUN groupadd -r appuser && useradd -r -g appuser -G audio,video appuser \
     && mkdir -p /home/appuser/Downloads /home/appuser/.cache \
     && chown -R appuser:appuser /app /home/appuser
 
-# Install puppeteer as root
-RUN npm install --no-audit --no-fund puppeteer@latest \
+# Install puppeteer and pdf-lib as root
+RUN npm install --no-audit --no-fund puppeteer@latest pdf-lib \
     && chown -R appuser:appuser /app/node_modules
 
 # Copy the converter script
-COPY scripts/convert-html-to-pdf.js /app/convert-html-to-pdf.js
+COPY src/app/api/convert-html-to-pdf.js /app/convert-html-to-pdf.js
 RUN chmod +x /app/convert-html-to-pdf.js \
     && chown appuser:appuser /app/convert-html-to-pdf.js
 

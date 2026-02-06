@@ -2,8 +2,8 @@ export const runtime = "nodejs";
 
 import fs from "fs/promises";
 import path from "path";
-import { checkRateLimit } from "@/lib/jwtAuth";
-import { parseJsonSafely } from "@/lib/inputValidation";
+import { jsonError, parseJsonBody, requireRateLimit } from "@/app/api/_utils/request";
+import { readUploadText } from "@/app/api/_utils/uploads";
 import {
   runOCR,
   extractBackgroundImage,
@@ -18,33 +18,23 @@ type Body = {
 export async function POST(req: Request) {
   try {
     // Rate limiting
-    const rateCheck = await checkRateLimit(req);
-    if (!rateCheck.allowed) {
-      return new Response(JSON.stringify({ error: rateCheck.message }), {
-        status: 429,
-      });
-    }
+    const rateLimitResponse = await requireRateLimit(req);
+    if (rateLimitResponse) return rateLimitResponse;
 
     // Auth check
     // const user = getAuthUser(req);
 
     // Parse JSON
-    const jsonResult = await parseJsonSafely(req, {
+    const jsonResult = await parseJsonBody(req, {
       maxSize: 1024 * 1024, // 1MB
       maxDepth: 5,
       maxKeys: 10,
     });
-    if (!jsonResult.success) {
-      return new Response(JSON.stringify({ error: jsonResult.error }), {
-        status: 400,
-      });
-    }
+    if (jsonResult.errorResponse) return jsonResult.errorResponse;
     const body = jsonResult.data as Body;
 
     if (!body.file) {
-      return new Response(JSON.stringify({ error: "Missing file parameter" }), {
-        status: 400,
-      });
+      return jsonError("Missing file parameter", 400);
     }
 
     // Security: validate filename
@@ -53,16 +43,11 @@ export async function POST(req: Request) {
       body.file.includes("/") ||
       body.file.includes("\\")
     ) {
-      return new Response(JSON.stringify({ error: "Invalid filename" }), {
-        status: 400,
-      });
+      return jsonError("Invalid filename", 400);
     }
 
     const uploadsDir = path.join(process.cwd(), "uploads");
-    const htmlPath = path.join(uploadsDir, body.file);
-
-    // Read HTML
-    const html = await fs.readFile(htmlPath, "utf8");
+    const html = await readUploadText(body.file);
     const $ = cheerio.load(html);
 
     // Find all background images that don't have overlapping text
@@ -181,9 +166,6 @@ export async function POST(req: Request) {
   } catch (err: unknown) {
     const error = err as Error;
     console.error("OCR processing error:", error);
-    return new Response(
-      JSON.stringify({ error: String(error?.message || err) }),
-      { status: 500 }
-    );
+    return jsonError(String(error?.message || err), 500);
   }
 }

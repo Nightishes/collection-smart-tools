@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
-import { checkRateLimit, getAuthUser, getMaxFileSize } from "@/lib/jwtAuth";
-import { sanitizeHtml } from "@/lib/sanitize";
+import { getAuthUser, getMaxFileSize } from "@/lib/jwtAuth";
 import { convertHtmlToFormattedDocx } from "@/lib/htmlToFormattedDocx";
-import { parseJsonSafely } from "@/lib/inputValidation";
+import { parseJsonBody, requireRateLimit } from "@/app/api/_utils/request";
+import { sanitizePdf2HtmlAware } from "@/app/api/_utils/html";
 
 export const runtime = "nodejs";
 
@@ -14,24 +14,20 @@ export const runtime = "nodejs";
 export async function POST(req: Request) {
   try {
     // Rate limiting
-    const rateCheck = await checkRateLimit(req);
-    if (!rateCheck.allowed) {
-      return NextResponse.json({ error: rateCheck.message }, { status: 429 });
-    }
+    const rateLimitResponse = await requireRateLimit(req);
+    if (rateLimitResponse) return rateLimitResponse;
 
     // Auth check
     const user = getAuthUser(req);
     const maxSize = getMaxFileSize(user);
 
     // Parse JSON with safety limits
-    const jsonResult = await parseJsonSafely(req, {
+    const jsonResult = await parseJsonBody(req, {
       maxSize: 15 * 1024 * 1024, // 15MB for HTML content
       maxDepth: 10,
       maxKeys: 50,
     });
-    if (!jsonResult.success) {
-      return NextResponse.json({ error: jsonResult.error }, { status: 400 });
-    }
+    if (jsonResult.errorResponse) return jsonResult.errorResponse;
     const { html, filename } = jsonResult.data as {
       html: string;
       filename?: string;
@@ -58,7 +54,7 @@ export async function POST(req: Request) {
     }
 
     // Sanitize HTML
-    const sanitized = sanitizeHtml(html);
+    const sanitized = sanitizePdf2HtmlAware(html);
     const safeName = (filename && filename.trim()) || "converted";
 
     // Convert HTML to DOCX with formatting preserved
