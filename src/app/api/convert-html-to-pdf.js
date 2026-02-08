@@ -4,9 +4,7 @@
 
 /* eslint-disable @typescript-eslint/no-require-imports */
 const fs = require("fs");
-const path = require("path");
 const puppeteer = require("puppeteer");
-const { PDFDocument } = require("pdf-lib");
 
 (async () => {
   try {
@@ -70,7 +68,6 @@ const { PDFDocument } = require("pdf-lib");
         }
         
         if (width && height) {
-          console.log(`Found .pf dimensions: ${width}x${height}px`);
           return { width, height };
         }
       }
@@ -81,7 +78,6 @@ const { PDFDocument } = require("pdf-lib");
         const width = pageContainer.scrollWidth;
         const height = pageContainer.scrollHeight;
         if (width && height) {
-          console.log(`Found #page-container dimensions: ${width}x${height}px`);
           return { width, height };
         }
       }
@@ -92,9 +88,6 @@ const { PDFDocument } = require("pdf-lib");
     });
 
     const targetDimensions = dimensions;
-
-    console.log(`Page dimensions: ${dimensions.width}x${dimensions.height}px`);
-    console.log(`Target PDF dimensions: ${targetDimensions.width}x${targetDimensions.height}px`);
 
     // Set viewport to match actual page dimensions
     await page.setViewport({ 
@@ -108,114 +101,84 @@ const { PDFDocument } = require("pdf-lib");
       timeout: 30000,
     });
 
-    // If visible inserted elements exist, use screenshot-to-PDF for pixel-perfect output
-    const screenshotCheck = await page.evaluate(() => {
-      const containers = document.querySelectorAll(
-        '.inserted-image-container, .inserted-shape-container, .text-box-container'
-      );
+    const insertedInfo = await page.evaluate(() => {
+      const pdfScale = 72 / 96;
+      const pdfCoordScale = pdfScale < 1 ? (1 + (1 - pdfScale)) : pdfScale;
+      const selectors = [
+        { selector: '.inserted-shape-container', type: 'shape' },
+        { selector: '.text-box-container', type: 'textarea' },
+        { selector: '.inserted-image-container', type: 'image' },
+      ];
 
-      const isVisible = (el) => {
-        const style = window.getComputedStyle(el);
-        if (style.display === 'none' || style.visibility === 'hidden') return false;
-        if (parseFloat(style.opacity || '1') === 0) return false;
-        const rect = el.getBoundingClientRect();
-        return rect.width > 0 && rect.height > 0;
+      const getScale = (el) => {
+        const container = el.closest('.pc') || el;
+        const transform = window.getComputedStyle(container).transform;
+        if (transform && transform !== 'none') {
+          const match = transform.match(/matrix\(([^,]+),/);
+          if (match) {
+            const scale = parseFloat(match[1]);
+            if (Number.isFinite(scale) && scale > 0) return scale;
+          }
+        }
+        return 1;
       };
 
-      let visibleCount = 0;
-      containers.forEach((container) => {
-        if (isVisible(container)) visibleCount += 1;
-      });
+      const elements = [];
+      let adjustedCount = 0;
 
-      return { total: containers.length, visible: visibleCount };
-    });
-
-    console.log(
-      `Screenshot trigger check: ${screenshotCheck.visible}/${screenshotCheck.total} visible inserted containers.`
-    );
-
-    const shouldScreenshot = screenshotCheck.visible > 0;
-
-    if (shouldScreenshot) {
-      console.log("Visible inserted images detected: using screenshot-to-PDF pipeline.");
-      const exportScreenshots = ["1", "true", "yes"].includes(
-        String(process.env.EXPORT_SCREENSHOTS || "").toLowerCase()
-      );
-      const outputBase = outputPath.replace(/\.pdf$/i, "");
-      const outputDir = path.dirname(outputPath);
-
-      const fullSize = await page.evaluate(() => ({
-        width: document.documentElement.scrollWidth,
-        height: document.documentElement.scrollHeight,
-      }));
-
-      await page.setViewport({
-        width: Math.ceil(fullSize.width),
-        height: Math.ceil(fullSize.height),
-      });
-
-      const pageRects = await page.evaluate(() => {
-        const rectFromElement = (el) => {
+      selectors.forEach(({ selector, type }) => {
+        document.querySelectorAll(selector).forEach((el) => {
           const rect = el.getBoundingClientRect();
-          return {
-            x: rect.left + window.scrollX,
-            y: rect.top + window.scrollY,
+          const scale = getScale(el);
+          elements.push({
+            type,
+            x: rect.x,
+            y: rect.y,
             width: rect.width,
             height: rect.height,
-          };
-        };
+            scale,
+          });
 
-        const pages = Array.from(document.querySelectorAll('.pf'));
-        if (pages.length) return pages.map(rectFromElement);
-
-        const pageContainer = document.querySelector('#page-container');
-        if (pageContainer) return [rectFromElement(pageContainer)];
-
-        return [rectFromElement(document.body)];
+          el.style.position = 'fixed';
+          el.style.left = `${rect.left * pdfCoordScale * 1.1}px`;
+          el.style.top = `${rect.top * pdfCoordScale * 1.1}px`;
+          el.style.width = `${rect.width * pdfCoordScale * 1.1}px`;
+          el.style.height = `${rect.height * pdfCoordScale * 1.1}px`;
+          // don't ask why, 1.1 seems to be a magic number. I assume it's margin compensation for the PDF scaling, but it needs more investigation
+          el.style.transform = 'none';
+          adjustedCount += 1;
+        });
       });
 
-      const pdfDoc = await PDFDocument.create();
-      for (let i = 0; i < pageRects.length; i += 1) {
-        const rect = pageRects[i];
-        const clip = {
-          x: Math.max(0, Math.floor(rect.x)),
-          y: Math.max(0, Math.floor(rect.y)),
-          width: Math.max(1, Math.ceil(rect.width)),
-          height: Math.max(1, Math.ceil(rect.height)),
-        };
+      return { elements, adjustedCount };
+    });
 
-        const pngBytes = await page.screenshot({ clip });
-        if (exportScreenshots) {
-          const imgName = `${path.basename(outputBase)}-page-${String(i + 1).padStart(3, "0")}.png`;
-          const imgPath = path.join(outputDir, imgName);
-          fs.writeFileSync(imgPath, pngBytes);
-        }
-        const pngImage = await pdfDoc.embedPng(pngBytes);
+    if (insertedInfo.elements.length) {
+      console.log(
+        "Inserted elements (HTML):",
+        JSON.stringify(insertedInfo.elements)
+      );
 
-        const widthPt = (clip.width * 72) / 96;
-        const heightPt = (clip.height * 72) / 96;
-        const pdfPage = pdfDoc.addPage([widthPt, heightPt]);
-        pdfPage.drawImage(pngImage, {
-          x: 0,
-          y: 0,
-          width: widthPt,
-          height: heightPt,
-        });
+      const pdfScale = 72 / 96;
+      const pdfCoordScale = pdfScale < 1 ? (1 + (1 - pdfScale)) : pdfScale;
+      const pdfElements = insertedInfo.elements.map((item) => ({
+        ...item,
+        x: item.x * pdfCoordScale,
+        y: item.y * pdfCoordScale,
+        width: item.width * pdfCoordScale,
+        height: item.height * pdfCoordScale,
+        scale: item.scale * pdfScale,
+      }));
+
+      console.log(
+        "Inserted elements (PDF coords):",
+        JSON.stringify(pdfElements)
+      );
+
+      if (insertedInfo.adjustedCount) {
+        console.log(`Inserted elements adjusted: ${insertedInfo.adjustedCount}`);
       }
-
-      const pdfBytes = await pdfDoc.save();
-      fs.writeFileSync(outputPath, pdfBytes);
-
-      if (exportScreenshots) {
-        console.log(`Saved screenshots to ${outputDir}`);
-      }
-
-      await browser.close();
-      console.log("PDF written to", outputPath);
-      process.exit(0);
     }
-
-    console.log("Using HTML dimensions for PDF output; skipping element scaling.");
 
     // Use actual dimensions for PDF output
     const pdfOptions = {

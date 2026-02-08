@@ -68,6 +68,13 @@ All notable changes to this project will be documented in this file.
   - Upgraded `pdf-parse` from `1.1.1` to `2.4.5` with new API (`PDFParse` class-based)
   - Added docker build tag specification (`:latest`)
 
+- **`src/app/api/convert-html-to-pdf.js`**: Patchnote — witchcraft
+  - Align inserted element positioning with PDF coordinate scaling
+  - Apply PDF coordinate scaling to left/top/width/height in-page styles
+  - Log PDF coordinates using the same scaling applied during positioning
+
+- **`package.json`**: Removed unused `pdf-lib` dependency
+
 - **`src/app/api/convert/pdf-to-docx/route.ts`**: Updated for pdf-parse 2.x API
 
   - Changed from `PDFParser(buffer)` to `new PDFParser({ data: buffer }).parse()`
