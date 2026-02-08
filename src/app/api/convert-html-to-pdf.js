@@ -130,6 +130,8 @@ const puppeteer = require("puppeteer");
         document.querySelectorAll(selector).forEach((el) => {
           const rect = el.getBoundingClientRect();
           const scale = getScale(el);
+          const pageFrame = el.closest('.pf');
+          const frameRect = pageFrame ? pageFrame.getBoundingClientRect() : null;
           elements.push({
             type,
             x: rect.x,
@@ -139,9 +141,20 @@ const puppeteer = require("puppeteer");
             scale,
           });
 
-          el.style.position = 'fixed';
-          el.style.left = `${rect.left * pdfCoordScale * 1.1}px`;
-          el.style.top = `${rect.top * pdfCoordScale * 1.1}px`;
+          if (pageFrame) {
+            if (pageFrame.style.position !== 'relative' && pageFrame.style.position !== 'absolute') {
+              pageFrame.style.position = 'relative';
+            }
+            const relLeft = rect.left - (frameRect ? frameRect.left : 0);
+            const relTop = rect.top - (frameRect ? frameRect.top : 0);
+            el.style.position = 'absolute';
+            el.style.left = `${relLeft * pdfCoordScale * 1.1}px`;
+            el.style.top = `${relTop * pdfCoordScale * 1.1}px`;
+          } else {
+            el.style.position = 'fixed';
+            el.style.left = `${rect.left * pdfCoordScale * 1.1}px`;
+            el.style.top = `${rect.top * pdfCoordScale * 1.1}px`;
+          }
           el.style.width = `${rect.width * pdfCoordScale * 1.1}px`;
           el.style.height = `${rect.height * pdfCoordScale * 1.1}px`;
           // don't ask why, 1.1 seems to be a magic number. I assume it's margin compensation for the PDF scaling, but it needs more investigation
