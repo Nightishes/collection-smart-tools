@@ -134,5 +134,6 @@ jobs:
       - name: TruffleHog OSS
         uses: trufflesecurity/trufflehog@main
         continue-on-error: true
+        with:
           head: HEAD
           extra_args: --debug --only-verified
