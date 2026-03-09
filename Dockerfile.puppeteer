@@ -1,6 +1,6 @@
 # Dockerfile to build an image with Node and Puppeteer for HTML->PDF conversion
 # Pinned version for security
-FROM node:20.10.0-bullseye-slim
+FROM node:25.8.0-bullseye-slim
 
 # Install required dependencies for Chromium
 RUN apt-get update && apt-get install -y --no-install-recommends \
