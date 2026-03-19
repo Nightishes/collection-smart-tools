@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getAuthUser, getMaxFileSize } from "@/lib/jwtAuth";
 import { convertHtmlToFormattedDocx } from "@/lib/htmlToFormattedDocx";
+import htmlToDocx from "html-to-docx";
 import { parseJsonBody, requireRateLimit } from "@/app/api/_utils/request";
 import { sanitizePdf2HtmlAware } from "@/app/api/_utils/html";
 
@@ -57,8 +58,21 @@ export async function POST(req: Request) {
     const sanitized = sanitizePdf2HtmlAware(html);
     const safeName = (filename && filename.trim()) || "converted";
 
-    // Convert HTML to DOCX with formatting preserved
-    const buffer = await convertHtmlToFormattedDocx(sanitized);
+    // Convert HTML to DOCX. Prefer the high-fidelity pdf2html-aware converter,
+    // then fallback to a generic converter for regular HTML documents.
+    let buffer: Buffer;
+    try {
+      buffer = await convertHtmlToFormattedDocx(sanitized);
+    } catch (conversionErr: unknown) {
+      const message = conversionErr instanceof Error ? conversionErr.message : "";
+      if (message.includes("No PDF pages found in HTML")) {
+        buffer = await htmlToDocx(sanitized, undefined, {
+          table: { row: { cantSplit: true } },
+        });
+      } else {
+        throw conversionErr;
+      }
+    }
     console.log(
       "✓ HTML→DOCX conversion successful with formatting preservation"
     );
@@ -75,10 +89,11 @@ export async function POST(req: Request) {
         )}.docx"`,
       },
     });
-  } catch (err: any) {
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : "Conversion error";
     console.error("HTML→DOCX error", err);
     return NextResponse.json(
-      { success: false, error: err?.message || "Conversion error" },
+      { success: false, error: message },
       { status: 500 }
     );
   }

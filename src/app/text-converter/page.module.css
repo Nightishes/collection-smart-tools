@@ -18,6 +18,66 @@
   margin-top: 1em;
 }
 
+.modeSwitch {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  margin-bottom: 1rem;
+}
+
+.modeButton {
+  padding: 0.6rem 0.9rem;
+  border: 1px solid var(--border-color);
+  background: var(--foreground);
+  color: var(--text-primary);
+  cursor: pointer;
+}
+
+.modeButtonActive {
+  border-color: var(--text-secondary);
+  background: var(--background-alt, #252525);
+}
+
+.singleControls {
+  margin-top: 1rem;
+  display: grid;
+  gap: 0.75rem;
+}
+
+.controlLabel {
+  color: var(--text-primary);
+  display: grid;
+  gap: 0.35rem;
+  max-width: 320px;
+}
+
+.select,
+.input {
+  padding: 0.5rem;
+  background: var(--foreground);
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
+}
+
+.customRow {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.previewSection {
+  padding: 1rem;
+  background: var(--foreground);
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+}
+
+.previewContent {
+  margin-bottom: 1rem;
+  max-height: 500px;
+  overflow-y: auto;
+}
+
 .title {
   color: var(--text-primary);
   margin-bottom: 2rem;

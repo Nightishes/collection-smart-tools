@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
-import * as mammoth from "mammoth";
+import { convertDocxToHtml, convertDocxToText } from "@/lib/docxConverter";
 import { getAuthUser } from "@/lib/jwtAuth";
-import { validateDocxMagic, sanitizeHtml } from "@/lib/sanitize";
+import { validateDocxMagic } from "@/lib/sanitize";
 import { validateFormatParam } from "@/lib/inputValidation";
 import { scanFile } from "@/lib/virusScanner";
 import fs from "fs/promises";
@@ -112,26 +112,20 @@ export async function POST(req: Request) {
       await fs.unlink(tempFile).catch(() => {});
     }
 
-    // Note: mammoth library doesn't expose XML parser configuration.
-    // XXE protection relies on: 1) size limits, 2) no network access in Docker,
-    // 3) virus scanning catches many exploits
     if (format === "text") {
-      const raw = await mammoth.extractRawText({ buffer });
+      const text = await convertDocxToText(buffer);
       return NextResponse.json({
         success: true,
         format,
-        content: raw.value,
-        warnings: raw.messages?.length ? raw.messages : undefined,
+        content: text,
         originalName: file.name,
       });
     } else {
-      const converted = await mammoth.convertToHtml({ buffer });
-      const sanitized = sanitizeHtml(converted.value);
+      const html = await convertDocxToHtml(buffer);
       return NextResponse.json({
         success: true,
         format,
-        content: sanitized,
-        warnings: converted.messages?.length ? converted.messages : undefined,
+        content: html,
         originalName: file.name,
       });
     }

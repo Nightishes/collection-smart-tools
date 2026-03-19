@@ -2,6 +2,53 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased] - 2026-03-19
+
+### ✨ New — Text Converter: single-target X→HTML→Y pipeline
+
+- **`src/app/api/convert/single-target/route.ts`** *(new)*: Central conversion endpoint supporting `.pdf`, `.docx`, `.odt`, `.txt`, `.html` as input and any of those as output via a strict X→HTML→Y pipeline
+  - Returns JSON `{success, blob (base64), filename, previewHtml?, previewText?}` for client-side preview before download
+  - Page formatting options: `none` / A-series preset (A0–A5) / custom mm dimensions injected as `@page` + `body { max-width }` CSS
+  - HTML→HTML with `mode=none` returns as-is (no processing overhead)
+
+- **`src/lib/docxConverter.ts`** *(new)*: DOCX → HTML/text converter using direct XML parsing via JSZip — replaces Mammoth
+  - `convertDocxToHtml(buffer)`: reads `word/document.xml` + `word/styles.xml`; preserves paragraph alignment (`<w:jc>`), spacing (`<w:spacing w:before/after>`), bold/italic/underline (direct + style-inherited), heading hierarchy (h1–h6 from Word heading styles), tables, soft line breaks; derives `max-width` / margins from `<w:sectPr>/<w:pgSz>` in the source document
+  - `convertDocxToText(buffer)`: plain-text extraction from `<w:t>` nodes; preserves soft breaks and tabs
+  - `detectDocxPageDimsMm(buffer)`: reads `<w:pgSz>` and returns `{w, h}` in mm for auto-detection
+
+- **`src/lib/odtConverter.ts`** *(new)*: ODT ↔ HTML utilities using JSZip
+  - `convertOdtToHtml(buffer)`, `convertHtmlToOdtBuffer(html, settings)` — ODT read/write
+  - `snapToPreset(wMm, hMm)`: snaps detected dimensions to nearest A-series preset (±20 mm tolerance)
+  - `detectOdtPageDimsMm(buffer)`: reads `styles.xml` → `fo:page-width/height` (supports cm/mm/in/pt units)
+
+### ✨ New — Page format auto-detection
+
+- **`src/app/api/convert/single-target/route.ts`**: When `formatMode=none` and source is DOCX or ODT, the file is inspected before conversion and its page dimensions snapped to the nearest A-series preset automatically. User-specified format always takes priority. Detection failure is non-fatal.
+
+### ♻️ Refactored — Removed Mammoth dependency
+
+- **`src/app/api/convert/docx/route.ts`**: Both HTML and text outputs now use `convertDocxToHtml` / `convertDocxToText` from `docxConverter.ts`; Mammoth import and stale XXE comment removed
+- **`package.json` / `package-lock.json`**: `mammoth` (and its 13 transitive packages) uninstalled
+
+### 🐛 Fixed — DOCX → HTML formatting fidelity
+
+- Paragraph alignment (`text-align: right/center/justify`) now preserved from `<w:jc>`
+- Paragraph spacing (`margin-top/bottom`) extracted from `<w:spacing w:before/after>` at both style and paragraph level; fallback to "Normal" style defaults instead of an empty-key lookup that silently returned nothing
+- Empty paragraphs inherit spacing instead of hardcoded `min-height:0.6em`
+- Output is a complete standalone HTML document (`<!doctype html>`, `<head>`, proper `<body>`) rather than a bare fragment
+- `body { max-width }` derived from `<w:pgSz>` in the source DOCX so the HTML visually reflects the original page width
+
+### 🐛 Fixed — `addPageCss` (single-target route)
+
+- Now injects both `@page { size: … }` (for PDF/print) and `body { max-width: Xmm; padding: …mm }` (for screen rendering) so A4/A3/etc. selections are visually reflected in HTML output
+
+### 🖼️ New — Text Converter UI: two-mode front-end
+
+- **`src/app/text-converter/page.tsx`**: Rewritten with single-target and multi-target modes; single-target shows a preview panel (HTML snippet or plain text) with Download / Cancel before the file is saved
+- **`src/app/text-converter/page.module.css`**: Added `.modeSwitch`, `.singleControls`, `.previewSection`, `.previewContent` and related styles
+
+---
+
 ## [Unreleased] - 2026-01-12
 
 ### ✅ Fixed - Text Selection & Element Interaction
